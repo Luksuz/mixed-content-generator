@@ -1,0 +1,6 @@
+This directory contains mock audio files for demonstration purposes.
+
+In a real application, these would be generated dynamically by
+the respective AI services (OpenAI, MiniMax, Whisper).
+
+For the demo, we're simulating these files with API responses. 
