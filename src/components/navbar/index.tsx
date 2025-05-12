@@ -1,80 +1,63 @@
+'use client'; // Make Navbar a client component
+
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
+import { UserSelector } from '../user-selector';
+// Removed predefinedUsers import, as initial state is handled above
 
-import { signOut } from "@/app/actions";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createClient } from "@/utils/supabase/server";
-import { Lock, User } from "lucide-react";
+// Keep server-side imports for potential future use or refactor
+// import { signOut } from "@/app/actions";
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuLabel,
+//   DropdownMenuSeparator,
+//   DropdownMenuTrigger,
+// } from "@/components/ui/dropdown-menu";
+// import { createClient } from "@/utils/supabase/server";
+import { Lock, User as UserIcon } from "lucide-react"; // Renamed User icon to avoid conflict
 
-const Navbar = async () => {
-  const supabase = createClient();
+// Define props for Navbar
+interface NavbarProps {
+  selectedUserId: string;
+  onUserChange: (userId: string) => void;
+}
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// Mock user data for client-side rendering
+// In a real app, you'd fetch this or use a client-side auth hook
+const mockUser = null; // Or { email: 'test@example.com' }
+
+const Navbar = ({ selectedUserId, onUserChange }: NavbarProps) => { // Destructure props
+  // Remove local state and handler
+  // const [selectedUserId, setSelectedUserId] = useState<string>(...);
+  // const handleUserChange = (userId: string) => { ... };
+
+  const user = mockUser;
+  // const supabase = createClient(); // Cannot use server client here
+  // const {
+  //   data: { user },
+  // } = await supabase.auth.getUser(); // Cannot use await here
 
   return (
-    <header className="w-full">
+    <header className="w-full border-b">
       <div className="container p-4 sm:px-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Lock />
-          <h5 className="mt-0.5">Next Level Auth</h5>
+          <h5 className="mt-0.5 font-semibold text-lg">AI Content Gen</h5>
         </Link>
 
-        <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="ghost">
-                    <User />
-                  </Button>
-                </DropdownMenuTrigger>
+        <div className="flex items-center gap-4"> {/* Increased gap */} 
+          {/* User Selector */} 
+          <UserSelector 
+            selectedUserId={selectedUserId} 
+            onUserChange={onUserChange} 
+          />
 
-                <DropdownMenuContent sideOffset={5}>
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem asChild>
-                    <Link className="cursor-pointer" href="/profile">
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem className="p-0" asChild>
-                    <form action={signOut}>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="rounded-sm w-full"
-                        type="submit"
-                      >
-                        Logout
-                      </Button>
-                    </form>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            <>
-              <Button asChild>
-                <Link href="/login">Login</Link>
-              </Button>
-            </>
-          )}
-
+          {/* Existing Auth Buttons/Mode Toggle */} 
+          {/* Commenting out auth part for now as it needs client-side handling */} 
+          {/* {user ? ( ... ) : ( ... ) } */} 
           <ModeToggle />
         </div>
       </div>

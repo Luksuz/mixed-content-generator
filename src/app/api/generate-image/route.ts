@@ -2,163 +2,188 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { GenerateImageRequestBody, GenerateImageResponse } from '@/types/image-generation';
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
+// import { createClient } from '@/utils/supabase/client'; // Use client if needed, but likely not for API route
 import { v4 as uuidv4 } from 'uuid';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as GenerateImageRequestBody;
-    const { provider, prompt, numberOfImages = 1, outputFormat = "url", minimaxAspectRatio = "16:9", userId = "unknown_user" } = body;
+    // const supabase = createClient(); // Initialize Supabase client if needed for other operations
 
-    console.log(`🖼️ Received image generation request: provider=${provider}, userId=${userId}, prompt=${prompt.substring(0,50)}...`);
+    try {
+        const body = (await request.json()) as GenerateImageRequestBody;
+        const {
+            provider,
+            prompt,
+            numberOfImages = 1,
+            outputFormat = "url", // Keep outputFormat, default to url
+            minimaxAspectRatio = "16:9",
+            userId = "unknown_user"
+        } = body;
 
-    if (!prompt) {
-      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-    }
+        console.log(`🖼️ Received image generation request: provider=${provider}, userId=${userId}, prompt=${prompt.substring(0, 50)}...`);
 
-    if (!MINIMAX_API_KEY && provider === "minimax") {
-        return NextResponse.json({ error: 'Minimax API key is not configured.' }, { status: 500 });
-    }
-    if (!process.env.OPENAI_API_KEY && provider === "openai") {
-        return NextResponse.json({ error: 'OpenAI API key is not configured.' }, { status: 500 });
-    }
+        if (!prompt) {
+            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+        }
+        if (provider !== 'openai' && provider !== 'minimax') {
+            return NextResponse.json({ error: 'Invalid provider specified' }, { status: 400 });
+        }
+        // Consider if userId validation is needed here
+        // if (!userId || userId === "unknown_user") {
+        //     console.warn("Received image generation request without a valid userId.");
+        //     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+        // }
 
-    let supabaseImageUrls: string[] = [];
+        // API key checks
+        if (provider === "minimax" && !MINIMAX_API_KEY) {
+            return NextResponse.json({ error: 'Minimax API key is not configured.' }, { status: 500 });
+        }
+        if (provider === "openai" && !process.env.OPENAI_API_KEY) {
+            return NextResponse.json({ error: 'OpenAI API key is not configured.' }, { status: 500 });
+        }
 
-    if (provider === 'openai') {
-      console.log(`Generating ${numberOfImages} image(s) with OpenAI DALL-E 3...`);
-      const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: prompt,
-        n: 1, // DALL-E 3 currently only supports n=1
-        response_format: 'b64_json', // Always get base64 to upload to Supabase
-        size: "1024x1024", 
-      });
+        let supabaseImageUrls: string[] = [];
 
-      if (response.data) {
-          for (const image of response.data) {
-            if (image.b64_json) {
-              const imageBuffer = Buffer.from(image.b64_json, 'base64');
-              const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
-              const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
-              if (supabaseUrl) {
-                supabaseImageUrls.push(supabaseUrl);
-              } else {
-                console.warn("Failed to upload an OpenAI generated image to Supabase.");
-                // Decide how to handle partial failures - continue or throw?
-              }
+        // --- OpenAI Logic ---
+        if (provider === 'openai') {
+            console.log(`Generating ${numberOfImages} image(s) with OpenAI DALL-E 3...`);
+            // Note: DALL-E 3 only supports n=1, handle numberOfImages > 1 if needed (e.g., loop or warning)
+            if (numberOfImages > 1) {
+                 console.warn("OpenAI DALL-E 3 requested for > 1 image, but only 1 generated per API call in this implementation.");
+                 // If multiple DALL-E 3 images are truly needed, this loop needs to make multiple API calls.
+                 // For now, we proceed with generating just one.
             }
-          }
-          // If numberOfImages > 1 was requested for OpenAI, log a warning as DALL-E 3 only returns 1
-          if (numberOfImages > 1) {
-              console.warn("OpenAI DALL-E 3 was requested for > 1 image, but only 1 can be generated per API call.");
-          }
-      } else {
-        console.warn('OpenAI response did not contain data.');
-      }
-    } else if (provider === 'minimax') {
-      console.log(`Generating ${numberOfImages} image(s) with MiniMax...`);
-      const minimaxApiUrl = "https://api.minimaxi.chat/v1/image_generation";
 
-      // Helper function to generate and upload one image with Minimax
-      const generateAndUploadSingleMinimaxImage = async (currentPrompt: string, aspectRatio: string): Promise<string | null> => {
-        const payload = {
-          model: "image-01",
-          prompt: currentPrompt,
-          aspect_ratio: aspectRatio,
-          response_format: "base64", // Always get base64
-          n: 1, 
-          prompt_optimizer: true,
-        };
-        const headers = {
-          'Authorization': `Bearer ${MINIMAX_API_KEY}`,
-          'Content-Type': 'application/json',
-        };
+            try {
+                const response = await openai.images.generate({
+                    model: "dall-e-3",
+                    prompt: prompt,
+                    n: 1, // DALL-E 3 supports only 1
+                    response_format: 'b64_json', // Always get base64 for upload
+                    size: "1024x1024",
+                });
 
-        try {
-          const minimaxResponse = await fetch(minimaxApiUrl, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(payload),
-          });
-
-          if (!minimaxResponse.ok) {
-            const errorData = await minimaxResponse.json().catch(() => ({}));
-            console.error('Minimax API error:', minimaxResponse.status, errorData);
-            throw new Error(`Minimax API request failed with status ${minimaxResponse.status}`);
-          }
-
-          const data = await minimaxResponse.json();
-
-          if (data.data && data.data.image_base64 && Array.isArray(data.data.image_base64) && data.data.image_base64.length > 0) {
-            const base64String = data.data.image_base64[0];
-            if (base64String) {
-              const imageBuffer = Buffer.from(base64String, 'base64');
-              const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
-              const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
-               if (!supabaseUrl) {
-                    console.warn("Failed to upload a MiniMax generated image to Supabase.");
-                    return null;
+                if (response.data?.[0]?.b64_json) {
+                    const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
+                    const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
+                    const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                    if (supabaseUrl) {
+                        supabaseImageUrls.push(supabaseUrl);
+                    } else {
+                        console.warn("Failed to upload an OpenAI generated image to Supabase.");
+                        // Potentially throw an error or collect failures
+                    }
+                } else {
+                    console.warn('OpenAI response did not contain expected image data.');
+                    // Potentially throw an error
                 }
-                return supabaseUrl;
+            } catch (error: any) {
+                 console.error("Error during OpenAI image generation/upload:", error);
+                 // Re-throw or return specific error response
+                 throw new Error(`OpenAI image generation failed: ${error.message}`);
             }
-          }
-          if (data.base && data.base.status_code !== 0) {
-             console.error('Minimax API returned an error status in response base:', data.base);
-             throw new Error(`Minimax API error: ${data.base.status_msg || 'Unknown error'}`);
-          } 
-          console.warn('Minimax response did not contain expected image_base64 array in data field or had other issues:', data);
-          return null;
-
-        } catch (error) {
-          console.error('Error during single Minimax image generation/upload:', error);
-          throw error; // Re-throw for Promise.allSettled
         }
-      };
+        // --- MiniMax Logic ---
+        else if (provider === 'minimax') {
+            console.log(`Generating ${numberOfImages} image(s) with MiniMax...`);
+            const minimaxApiUrl = "https://api.minimaxi.chat/v1/image_generation";
 
-      const imageGenerationPromises = [];
-      for (let i = 0; i < numberOfImages; i++) {
-        imageGenerationPromises.push(generateAndUploadSingleMinimaxImage(prompt, minimaxAspectRatio));
-      }
+            // Helper function for a single MiniMax generation + upload
+            const generateAndUploadSingleMinimaxImage = async (): Promise<string | null> => {
+                const payload = {
+                    model: "image-01",
+                    prompt: prompt,
+                    aspect_ratio: minimaxAspectRatio,
+                    response_format: "base64", // Always get base64
+                    n: 1, // Generate one at a time
+                    prompt_optimizer: true,
+                };
+                const headers = {
+                    'Authorization': `Bearer ${MINIMAX_API_KEY}`,
+                    'Content-Type': 'application/json',
+                };
 
-      const settledResults = await Promise.allSettled(imageGenerationPromises);
+                try {
+                    const minimaxResponse = await fetch(minimaxApiUrl, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
+                    if (!minimaxResponse.ok) {
+                        const errorData = await minimaxResponse.json().catch(() => ({}));
+                        console.error('Minimax API error:', minimaxResponse.status, errorData);
+                        throw new Error(`Minimax API request failed with status ${minimaxResponse.status}`);
+                    }
+                    const data = await minimaxResponse.json();
 
-      settledResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-            supabaseImageUrls.push(result.value);
-        } else if (result.status === 'rejected') {
-          console.error("A Minimax image generation/upload task failed:", result.reason);
+                    if (data.data?.image_base64?.[0]) {
+                        const base64String = data.data.image_base64[0];
+                        const imageBuffer = Buffer.from(base64String, 'base64');
+                        const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
+                        const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                        if (!supabaseUrl) {
+                            console.warn("Failed to upload a MiniMax generated image to Supabase.");
+                            return null; // Indicate failure for this specific image
+                        }
+                        return supabaseUrl;
+                    }
+                    if (data.base?.status_code !== 0) {
+                        console.error('Minimax API returned an error status:', data.base);
+                        throw new Error(`Minimax API error: ${data.base.status_msg || 'Unknown error'}`);
+                    }
+                    console.warn('Minimax response format unexpected:', data);
+                    return null; // Indicate failure
+                } catch (error) {
+                    console.error('Error during single MiniMax image generation/upload:', error);
+                    // Let Promise.allSettled handle this rejection
+                    throw error;
+                }
+            };
+
+            // Create and run promises in parallel
+            const imageGenerationPromises: Promise<string | null>[] = [];
+            for (let i = 0; i < numberOfImages; i++) {
+                imageGenerationPromises.push(generateAndUploadSingleMinimaxImage());
+            }
+
+            const settledResults = await Promise.allSettled(imageGenerationPromises);
+
+            settledResults.forEach((result, index) => {
+                if (result.status === 'fulfilled' && result.value) {
+                    supabaseImageUrls.push(result.value);
+                } else if (result.status === 'rejected') {
+                    console.error(`Failed to generate/upload MiniMax image ${index + 1}:`, result.reason);
+                    // Decide how to handle partial failures - currently, we just log and continue
+                } else if (result.status === 'fulfilled' && result.value === null) {
+                    console.warn(`MiniMax image ${index + 1} generation/upload completed but resulted in null (e.g., upload failed).`);
+                }
+            });
         }
-      });
 
-    } else {
-      return NextResponse.json({ error: 'Invalid provider specified' }, { status: 400 });
+        // --- Final Response ---
+        if (supabaseImageUrls.length === 0) {
+             // This could happen if all requests failed or if 0 images were requested (though prompt is required)
+             console.error("No images were successfully generated and uploaded.");
+             // Return an error if images were expected but none succeeded
+             if (numberOfImages > 0) {
+                  return NextResponse.json({ error: 'Image generation failed. No images were successfully created or uploaded. Check provider status and API keys.' }, { status: 500 });
+             }
+        }
+
+        console.log(`✅ Image generation complete. Returning ${supabaseImageUrls.length} Supabase URL(s).`);
+        const responsePayload: GenerateImageResponse = { imageUrls: supabaseImageUrls };
+        return NextResponse.json(responsePayload, { status: 200 });
+
+    } catch (error: any) {
+        console.error('Error generating image:', error);
+        // Catch errors thrown from OpenAI/MiniMax sections or general request processing errors
+        return NextResponse.json({ error: error.message || 'Failed to generate image' }, { status: 500 });
     }
-
-    // Always return URLs now
-    const responsePayload: GenerateImageResponse = { imageUrls: supabaseImageUrls };
-
-    if (supabaseImageUrls.length === 0) {
-        console.error("No images were successfully generated and uploaded.");
-        return NextResponse.json({ error: 'No images were generated or uploaded successfully. Check provider API keys, prompt, and Supabase configuration.' }, { status: 500 });
-    }
-
-    console.log(`✅ Image generation complete. Returning ${supabaseImageUrls.length} Supabase URL(s).`);
-    return NextResponse.json(responsePayload, { status: 200 });
-
-  } catch (error: any) {
-    console.error('Error generating image:', error);
-    return NextResponse.json({ error: error.message || 'Failed to generate image' }, { status: 500 });
-  }
 }
 
-// Basic type checking for environment variables at module load
-if (process.env.NODE_ENV !== 'test') { // Avoid console logs during tests
+// Keep existing env var checks
+if (process.env.NODE_ENV !== 'test') {
     if (!process.env.OPENAI_API_KEY) {
         console.warn("Warning: OPENAI_API_KEY environment variable is not set. OpenAI image generation will fail.");
     }

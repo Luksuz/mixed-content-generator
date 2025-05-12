@@ -1,5 +1,4 @@
-import Footer from "@/components//footer";
-import Navbar from "@/components//navbar";
+// Removed Navbar and Footer imports
 
 export default function RootLayout({
   children,
@@ -7,12 +6,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
-      <Navbar />
-
-      <main className="container p-4 sm:p-6 flex-1">{children}</main>
-
-      <Footer />
-    </>
+    // Render only children, Navbar is now in the page
+    // Footer can be added back here or inside the page if needed
+    <>{children}</>
   );
 }

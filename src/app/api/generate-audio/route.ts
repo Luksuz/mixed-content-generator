@@ -258,46 +258,58 @@ async function joinAudioChunks(
     throw new Error("No audio chunk file paths provided for joining.");
   }
   if (chunkFilePaths.length === 1) {
-    const singleChunkPath = chunkFilePaths[0];
+    // If there's only one chunk, just move/rename it
     const finalPath = path.join(baseOutputDir, finalOutputFileName);
-    await fsp.rename(singleChunkPath, finalPath);
-    console.log(`🎵 Single chunk moved to final destination: ${finalPath}`);
-    return finalPath;
-            }
-            
-  console.log(`🔗 Joining ${chunkFilePaths.length} audio chunks into ${finalOutputFileName} using ffmpeg...`);
-  const finalPath = path.join(baseOutputDir, finalOutputFileName);
-  
-  const tempDirForListFile = path.dirname(chunkFilePaths[0]);
-  const listFileName = `ffmpeg-list-${Date.now()}.txt`;
-  const listFilePath = path.join(tempDirForListFile, listFileName);
-  
-  const fileListContent = chunkFilePaths.map(p => `file '${path.resolve(p).replace(/\\/g, '/')}'`).join('\n');
-  
-  console.log(`📝 Writing ffmpeg list file to: ${listFilePath}`);
-  console.log(`📝 List file content:\n${fileListContent}`);
-  await fsp.writeFile(listFilePath, fileListContent);
+    console.log(`📦 Only one chunk, moving ${chunkFilePaths[0]} to ${finalPath}`);
+    try {
+      await ensureDir(baseOutputDir);
+      await fsp.rename(chunkFilePaths[0], finalPath);
+      return finalPath;
+    } catch (renameError) {
+      console.error(`❌ Error moving single chunk file: ${renameError}`);
+      throw renameError;
+    }
+  }
+
+  console.log(`🎬 Joining ${chunkFilePaths.length} audio chunks into ${finalOutputFileName}...`);
+  await ensureDir(baseOutputDir); // Ensure final output directory exists
+  const finalOutputPath = path.join(baseOutputDir, finalOutputFileName);
+  const listFileName = `ffmpeg-list-${uuidv4()}.txt`;
+  // Place list file in the same temp directory as the first chunk
+  const tempDirForList = path.dirname(chunkFilePaths[0]); 
+  const listFilePath = path.join(tempDirForList, listFileName);
+
+  // Create the file list for ffmpeg's concat demuxer
+  // Ensure paths are absolute and properly escaped/formatted for ffmpeg list file
+  const fileListContent = chunkFilePaths
+    .map(filePath => `file '${path.resolve(filePath).replace(/\\/g, '/')}'`)
+    .join('\n');
 
   try {
-    await fsp.access(listFilePath, fs.constants.F_OK | fs.constants.R_OK);
-    console.log(`✅ Verified ffmpeg list file exists and is readable: ${listFilePath}`);
-  } catch (accessError: any) {
-    console.error(`❌ CRITICAL ERROR: ffmpeg list file not accessible from Node.js right before spawn: ${listFilePath}`, accessError);
-    // Throw an error to prevent ffmpeg from attempting to run with a missing list file.
-    // This error will be caught by the calling function's try-catch (e.g., in POST handler).
-    throw new Error(`ffmpeg list file ${listFilePath} not accessible before spawn: ${accessError.message}`);
+    await fsp.writeFile(listFilePath, fileListContent);
+    console.log(`📄 Created ffmpeg file list: ${listFilePath}`);
+    // Optional: Verify access immediately after writing, useful for debugging permissions
+    // await fsp.access(listFilePath, fs.constants.R_OK);
+    // console.log(`✅ Verified ffmpeg list file access: ${listFilePath}`);
+  } catch (writeError) {
+    console.error(`❌ Error writing ffmpeg list file: ${writeError}`);
+    throw writeError;
   }
 
   return new Promise((resolve, reject) => {
     const ffmpegArgs = [
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', listFilePath,
-      '-c', 'copy',
-      finalPath
+      '-f', 'concat',      // Use the concat demuxer
+      '-safe', '0',        // Allow relative/absolute paths in list file
+      '-i', listFilePath, // Input file list
+      // '-c', 'copy',       // !! Using -c copy prevents changing bitrate. Remove this. !!
+      '-b:a', '64k',       // Set audio bitrate to 64 kbps (LOWERED)
+      '-ar', '44100',     // Optional: Standardize sample rate (e.g., 44.1kHz)
+      '-ac', '1',          // Optional: Force mono channel
+      '-y',                // Overwrite output file if it exists
+      finalOutputPath      // Output file path
     ];
 
-    console.log(`🚀 Executing ffmpeg with args: ${ffmpegArgs.join(' ')}`);
+    console.log(`🚀 Running ffmpeg command: ffmpeg ${ffmpegArgs.join(' ')}`);
     const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
 
     let ffmpegOutput = '';
@@ -305,28 +317,61 @@ async function joinAudioChunks(
     ffmpegProcess.stderr.on('data', (data) => { ffmpegOutput += data.toString(); });
 
     ffmpegProcess.on('close', async (code) => {
-      console.log(`ffmpeg process exited with code ${code}. Output:\\n${ffmpegOutput}`);
-      // Cleanup list file
-      try { await fsp.rm(listFilePath); } catch (e) { console.warn("Could not delete ffmpeg list file:", e); }
-      
+      console.log(`ffmpeg process exited with code ${code}`);
+      // Log only the last few lines of output for brevity if it's long
+      const MAX_LOG_LINES = 20;
+      const outputLines = ffmpegOutput.split('\n');
+      const relevantOutput = outputLines.slice(-MAX_LOG_LINES).join('\n');
+      console.log(`ffmpeg output (last ${MAX_LOG_LINES} lines):\n${relevantOutput}`);
+
+      // Cleanup the list file
+      try {
+        await fsp.rm(listFilePath);
+        console.log(`🧹 Cleaned up ffmpeg list file: ${listFilePath}`);
+      } catch (cleanupError) {
+        console.warn(`⚠️ Could not clean up ffmpeg list file ${listFilePath}:`, cleanupError);
+      }
+
       if (code === 0) {
-        console.log(`✅ Audio chunks successfully joined: ${finalPath}`);
-        // Cleanup individual chunk files after successful join
+        console.log(`✅ Audio chunks successfully joined into ${finalOutputPath}`);
+        // Cleanup individual chunk files AFTER successful join
+        console.log(`🧹 Cleaning up ${chunkFilePaths.length} individual chunk files...`);
+        let cleanupFailures = 0;
         for (const chunkPath of chunkFilePaths) {
-          try { await fsp.rm(chunkPath); } catch (e) { console.warn(`Could not delete chunk ${chunkPath}:`, e); }
+          try {
+            await fsp.rm(chunkPath);
+          } catch (chunkCleanupError) {
+            cleanupFailures++;
+            console.warn(`⚠️ Failed to clean up chunk file ${chunkPath}:`, chunkCleanupError);
+          }
         }
-        resolve(finalPath);
+        if (cleanupFailures > 0) {
+           console.warn(`⚠️ Failed to clean up ${cleanupFailures} chunk files.`);
+        }
+        resolve(finalOutputPath);
       } else {
-        // Attempt to delete partially created output file if ffmpeg failed
-        try { if (fs.existsSync(finalPath)) await fsp.rm(finalPath); } catch (e) { /* ignore */ }
-        reject(new Error(`ffmpeg failed with code ${code}. Output: ${ffmpegOutput}`));
+        console.error(`❌ ffmpeg failed with code ${code}.`);
+        // Attempt cleanup of potentially failed output file
+        try { 
+            if (fs.existsSync(finalOutputPath)) {
+                await fsp.rm(finalOutputPath); 
+                console.log(`🧹 Cleaned up potentially incomplete output file: ${finalOutputPath}`);
+            } 
+        } catch (e) { 
+            console.warn(`⚠️ Could not clean up failed output file ${finalOutputPath}:`, e);
+        } 
+        reject(new Error(`ffmpeg failed to join audio chunks. Code: ${code}`));
       }
     });
 
-    ffmpegProcess.on('error', async (err) => {
-      console.error('Failed to start ffmpeg process:', err);
-      try { await fsp.rm(listFilePath); } catch (e) { /* ignore */ }
-      try { if (fs.existsSync(finalPath)) await fsp.rm(finalPath); } catch (e) { /* ignore */ }
+    ffmpegProcess.on('error', (err) => {
+      console.error('❌ Failed to start ffmpeg process:', err);
+      // Attempt cleanup of the list file on spawn error too
+      fsp.rm(listFilePath).catch(cleanupError => {
+        console.warn(`⚠️ Could not clean up ffmpeg list file ${listFilePath} after spawn error:`, cleanupError);
+      });
+      // Also try to cleanup output file if spawn fails early
+      fsp.rm(finalOutputPath).catch(() => {}); 
       reject(err);
     });
   });

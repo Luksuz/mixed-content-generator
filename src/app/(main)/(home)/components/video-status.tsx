@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Download, AlertCircle, Clock, CheckCircle } from 'lucide-react';
+import { Download, AlertCircle, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface VideoJob {
@@ -15,13 +15,15 @@ export interface VideoJob {
   errorMessage?: string | null;
   createdAt: Date | string; // Store as Date object or ISO string
   updatedAt?: Date | string;
+  user_id: string; // Add user_id field
 }
 
 interface VideoStatusProps {
   jobs: VideoJob[];
+  isLoading: boolean; // Add isLoading prop
 }
 
-const VideoStatus: React.FC<VideoStatusProps> = ({ jobs }) => {
+const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
 
   const getStatusBadgeVariant = (status: VideoJob['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -67,43 +69,49 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs }) => {
         <CardTitle>Video Generation Jobs</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {jobs.length === 0 && (
-          <p className="text-sm text-muted-foreground">No video generation jobs started yet.</p>
-        )}
-        {jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job) => (
-          <div key={job.id} className="p-4 border rounded-md space-y-2">
-            <div className="flex justify-between items-center">
-              <p className="text-sm font-medium truncate mr-2" title={job.id}>Job ID: {job.id.substring(0, 8)}...</p>
-              <Badge variant={getStatusBadgeVariant(job.status)} className="capitalize flex items-center gap-1">
-                 {getStatusIcon(job.status)} 
-                 {job.status}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Started: {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
-            </p>
-            {job.status === 'completed' && job.videoUrl && (
-              <Button 
-                size="sm" 
-                onClick={() => handleDownload(job.videoUrl!)}
-                className="w-full sm:w-auto"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Video
-              </Button>
-            )}
-            {job.status === 'failed' && job.errorMessage && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription className="text-xs">
-                  {job.errorMessage}
-                </AlertDescription>
-              </Alert>
-            )}
-            {/* We might need a way to trigger status updates here later */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Loading jobs...</span>
           </div>
-        ))}
+        ) : jobs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No video generation jobs found for the selected user.</p>
+        ) : (
+          jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job) => (
+            <div key={job.id} className="p-4 border rounded-md space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="text-sm font-medium truncate mr-2" title={job.id}>Job ID: {job.id.substring(0, 8)}...</p>
+                <Badge variant={getStatusBadgeVariant(job.status)} className="capitalize flex items-center gap-1">
+                   {getStatusIcon(job.status)} 
+                   {job.status}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Started: {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+              </p>
+              {job.status === 'completed' && job.videoUrl && (
+                <Button 
+                  size="sm" 
+                  onClick={() => handleDownload(job.videoUrl!)}
+                  className="w-full sm:w-auto"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Video
+                </Button>
+              )}
+              {job.status === 'failed' && job.errorMessage && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    {job.errorMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {/* We might need a way to trigger status updates here later */}
+            </div>
+          ))
+        )}
       </CardContent>
     </Card>
   );
