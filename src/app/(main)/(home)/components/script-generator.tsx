@@ -9,19 +9,31 @@ import { ScriptSection } from "@/types";
 import { Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
-const ScriptGenerator = () => {
+// Add new prop for callback
+interface ScriptGeneratorProps {
+  onScriptSectionsChange?: (sections: ScriptSection[]) => void;
+  onFullScriptChange?: (script: string) => void;
+  currentScriptSections?: ScriptSection[]; // New prop for controlled sections
+  currentFullScript?: string; // New prop for controlled full script
+}
+
+const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({ 
+  onScriptSectionsChange, 
+  onFullScriptChange, 
+  currentScriptSections = [], // Default to empty array
+  currentFullScript = ""      // Default to empty string
+}) => {
   const [title, setTitle] = useState("");
   const [wordCount, setWordCount] = useState(1000);
   const [theme, setTheme] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  const [scriptSections, setScriptSections] = useState<ScriptSection[]>([]);
-  const [fullScript, setFullScript] = useState("");
 
   const handleGenerateOutline = async () => {
     try {
       setIsLoading(true);
-      setFullScript("");
+      if (onFullScriptChange) onFullScriptChange("");
+      
       const response = await fetch("/api/generate-script", {
         method: "POST",
         headers: {
@@ -35,7 +47,9 @@ const ScriptGenerator = () => {
       }
       
       const data = await response.json();
-      setScriptSections(data.sections);
+      if (onScriptSectionsChange) {
+        onScriptSectionsChange(data.sections);
+      }
     } catch (error) {
       console.error("Error generating script outline:", error);
     } finally {
@@ -44,7 +58,7 @@ const ScriptGenerator = () => {
   };
 
   const handleGenerateFullScript = async () => {
-    if (scriptSections.length === 0) return;
+    if (currentScriptSections.length === 0) return;
     
     try {
       setIsGeneratingScript(true);
@@ -56,7 +70,7 @@ const ScriptGenerator = () => {
         body: JSON.stringify({ 
           title, 
           theme, 
-          sections: scriptSections 
+          sections: currentScriptSections
         }),
       });
       
@@ -65,7 +79,9 @@ const ScriptGenerator = () => {
       }
       
       const data = await response.json();
-      setFullScript(data.script);
+      if (onFullScriptChange) {
+        onFullScriptChange(data.script);
+      }
     } catch (error) {
       console.error("Error generating full script:", error);
     } finally {
@@ -74,13 +90,15 @@ const ScriptGenerator = () => {
   };
 
   const handleUpdateSection = (index: number, updatedSection: ScriptSection) => {
-    const newSections = [...scriptSections];
+    const newSections = [...currentScriptSections];
     newSections[index] = updatedSection;
-    setScriptSections(newSections);
+    if (onScriptSectionsChange) {
+      onScriptSectionsChange(newSections);
+    }
   };
 
   const handleDownloadDocx = async () => {
-    if (!fullScript) return;
+    if (!currentFullScript) return;
     
     try {
       const response = await fetch("/api/download-docx", {
@@ -90,7 +108,7 @@ const ScriptGenerator = () => {
         },
         body: JSON.stringify({ 
           title, 
-          content: fullScript 
+          content: currentFullScript
         }),
       });
       
@@ -173,12 +191,12 @@ const ScriptGenerator = () => {
             className="flex-1" 
             variant="secondary"
             onClick={handleGenerateFullScript}
-            disabled={isGeneratingScript || isLoading || scriptSections.length === 0}
+            disabled={isGeneratingScript || isLoading || currentScriptSections.length === 0}
           >
             {isGeneratingScript ? "Generating..." : "Generate Full Script"}
           </Button>
           
-          {fullScript && (
+          {currentFullScript && (
             <Button 
               variant="outline"
               onClick={handleDownloadDocx}
@@ -202,7 +220,7 @@ const ScriptGenerator = () => {
             </p>
           </div>
 
-          {scriptSections.length === 0 ? (
+          {currentScriptSections.length === 0 ? (
             <div className="h-[300px] flex items-center justify-center border rounded-lg bg-muted/50">
               <p className="text-muted-foreground">
                 {isLoading 
@@ -212,7 +230,7 @@ const ScriptGenerator = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {scriptSections.map((section, index) => (
+              {currentScriptSections.map((section, index) => (
                 <ScriptSectionCard
                   key={index}
                   section={section}
@@ -233,7 +251,7 @@ const ScriptGenerator = () => {
             </p>
           </div>
           
-          {!fullScript ? (
+          {!currentFullScript ? (
             <div className="h-[300px] flex items-center justify-center border rounded-lg bg-muted/50">
               <p className="text-muted-foreground">
                 {isGeneratingScript 
@@ -245,7 +263,7 @@ const ScriptGenerator = () => {
             <div className="border rounded-lg p-4 bg-card shadow-sm overflow-y-auto max-h-[600px]">
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 <h1 className="text-xl font-bold mb-4">{title}</h1>
-                <ReactMarkdown>{fullScript}</ReactMarkdown>
+                <ReactMarkdown>{currentFullScript}</ReactMarkdown>
               </div>
             </div>
           )}

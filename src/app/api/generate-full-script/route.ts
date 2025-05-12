@@ -7,8 +7,12 @@ import { ScriptSection } from "@/types";
 export async function POST(request: Request) {
   try {
     const { title, theme, sections } = await request.json();
+    console.log("Received request with title:", title);
+    console.log("Received request with theme:", theme);
+    console.log("Received request with sections:", sections);
     
     if (!title || !theme || !sections || sections.length === 0) {
+      console.log("Missing required fields");
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -21,6 +25,7 @@ export async function POST(request: Request) {
       modelName: "gpt-4o-mini",
       temperature: 0.7,
     });
+    console.log("Model initialized");
 
     // Process all sections concurrently
     const sectionPromises = sections.map(async (section: ScriptSection, index: number) => {
