@@ -243,8 +243,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     setIsGeneratingAudio(true);
     setAudioGenerationError(null);
     onAudioGenerated(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
+      setIsPlaying(false);
+      setCurrentTime(0);
     setAudioDuration(0);
     setSelectedVoiceName("");
 
@@ -303,7 +303,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Failed to generate audio. Unknown server error.'}));
         throw new Error(errorData.message || 'Failed to generate audio. Status: ' + response.status);
@@ -327,7 +327,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
 
   const togglePlayback = () => {
     if (!audioRef.current || !generatedAudioUrl) return;
-
+    
     if (isPlaying) {
       audioRef.current.pause();
       if (progressIntervalRef.current) {
@@ -388,7 +388,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     const secs = Math.floor(seconds % 60);
     return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
   };
-
+  
   const handleDownload = () => {
     if (!generatedAudioUrl) return;
     const link = document.createElement('a');
@@ -470,15 +470,15 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
 
         <div>
           <Label htmlFor="text-input">Text to Convert</Label>
-          <Textarea
+            <Textarea
             id="text-input"
             value={text}
             onChange={handleTextChange}
-            placeholder="Enter the text you want to convert to speech..."
+              placeholder="Enter the text you want to convert to speech..."
             className="mt-1 min-h-[100px]"
             rows={5}
-          />
-        </div>
+            />
+          </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {provider === 'openai' && (
@@ -499,15 +499,15 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             <>
               <div>
                 <Label htmlFor="minimax-voice">Voice</Label>
-                <select
+            <select
                   id="minimax-voice"
-                  value={voice}
+              value={voice}
                   onChange={handleVoiceChange}
                   className="w-full p-2 border rounded mt-1 bg-background text-foreground"
-                >
+            >
                   {renderSelectOptions(voiceOptions.minimax)}
-                </select>
-              </div>
+            </select>
+          </div>
               <div>
                 <Label htmlFor="minimax-model">Model</Label>
                 <select
@@ -521,7 +521,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               </div>
             </>
           )}
-          
+
           {provider === 'fish-audio' && (
             <>
               <div>
@@ -531,10 +531,10 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                   value={fishAudioVoiceId}
                   onChange={handleFishAudioVoiceChange}
                   className="w-full p-2 border rounded mt-1 bg-background text-foreground"
-                >
+            >
                   {renderSelectOptions(voiceOptions["fish-audio"])}
                 </select>
-              </div>
+          </div>
               <div>
                 <Label htmlFor="fish-audio-model">Model</Label>
                  <select
@@ -574,11 +574,11 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                     className="mt-1"
                  />
                </div>
-             </>
-          )}
+                    </>
+                  )}
         </div>
-
-        <Button 
+                
+                <Button 
           onClick={handleGenerateAudio} 
           disabled={isGeneratingAudio || !text.trim()}
           className="w-full"
@@ -596,9 +596,9 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               <span className="text-sm font-medium">Generated Audio ({selectedVoiceName || 'Selected Voice'})</span>
               <Button variant="outline" size="sm" onClick={handleDownload} className="h-8">
                 <Download size={16} className="mr-1"/>
-                Download
-              </Button>
-            </div>
+                  Download
+                </Button>
+              </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={togglePlayback} className="h-9 w-9">
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}

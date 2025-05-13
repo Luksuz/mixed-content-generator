@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const parser = StructuredOutputParser.fromZodSchema(scriptSectionsSchema);
 
     // Calculate the number of sections based on word count
-    const numSections = Math.max(1, Math.floor(wordCount / 1000));
+    const numSections = Math.max(1, Math.floor(wordCount / 1500));
 
     // Create the prompt for the model
     const prompt = `
@@ -33,16 +33,26 @@ export async function POST(request: Request) {
 
     Title: ${title}
     Theme: ${theme}
-    Word Count: ${wordCount} words
+    Word Count: Approximately ${wordCount} words (this is the target for the story itself, CTAs will add to it)
 
-    Based on the word count, I want you to generate ${numSections} sections for this script.
+    Based on the word count, I want you to generate ${numSections} main story sections for this script.
     
-    Each section should have:
-    1. A compelling title that captures the essence of that section
-    2. Detailed writing instructions (approximately 100-200 words) that explain what should happen in that section, including plot developments, character interactions, and thematic elements.
-    
-    Make the sections flow logically from one to another to create a cohesive narrative.
-    
+    Each section must have:
+    1.  A 'title' that captures the essence of that section.
+    2.  Detailed 'writingInstructions' (150-250 words for main content sections) that explain what should happen in that section, including plot developments, character interactions, and thematic elements. These instructions are for the narrator.
+    3.  An 'image_generation_prompt' (a concise phrase or sentence, around 10-25 words) that describes the key visual elements of the scene for an AI image generator. This prompt should be purely descriptive of the visuals, suitable for direct use in image generation, and must avoid any taboo, sensitive, or controversial topics.
+
+    IMPORTANT INSTRUCTIONS FOR NARRATOR CALLS TO ACTION (CTAs):
+    You MUST incorporate the following CTAs directly into the 'writingInstructions' of the appropriate sections. These CTAs are spoken by the narrator. Ensure these CTAs are integrated naturally within the narrative flow where specified.
+
+    1.  **CTA 1 (After Intro):** In the 'writingInstructions' for the section that immediately follows the initial introduction (the intro itself should be about 20-40 seconds of narration, so place this CTA in the next natural pause or transition within the first few minutes), include a paraphrased version of: "Before we jump back in, tell us where you're tuning in from, and if this story touches you, make sure you're subscribed—because tomorrow, I've saved something extra special for you!" Try to vary the phrasing of this CTA if you were to generate multiple scripts.
+    2.  **CTA 2 (Mid-Script ~10 minutes / ~1500 words):** For scripts long enough to have a 10-minute mark (around 1500 words of story content), embed this CTA into the 'writingInstructions' of a suitable mid-point section: "Preparing and narrating this story took us a lot of time, so if you are enjoying it, subscribe to our channel, it means a lot to us! Now back to the story."
+    3.  **CTA 3 (Later-Script ~40 minutes):** For very long scripts that would reach a 40-minute mark, embed this CTA into the 'writingInstructions' of an appropriate later section: "Enjoying the video so far? Don't forget to subscribe!"
+    4.  **CTA 4 (End of Script):** After the main story narrative is completely finished, the 'writingInstructions' for the very final section (or a new, short concluding section you create) MUST include: "Up next, you've got two more standout stories right on your screen. If this one hit the mark, you won't want to pass these up. Just click and check them out! And don't forget to subscribe and turn on the notification bell, so you don't miss any upload from us!"
+
+    Adherence to CTA placement and inclusion in 'writingInstructions' is critical.
+    Make all sections flow logically. Ensure all generated content, including CTAs and image prompts, is safe, respectful, and avoids controversial subjects.
+
     ${parser.getFormatInstructions()}
     `;
 
@@ -60,7 +70,7 @@ export async function POST(request: Request) {
         .map(item => {
           if (typeof item === 'string') return item;
           // Handle text content if it's a text content object
-          if ('text' in item) return item.text;
+          if (typeof item === 'object' && item !== null && 'text' in item && typeof item.text === 'string') return item.text;
           return '';
         })
         .join('\n');
@@ -70,9 +80,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ sections: parsedResponse });
   } catch (error) {
-    console.error("Error generating script:", error);
     return NextResponse.json(
-      { error: "Failed to generate script" },
+      { error: "An error occurred while generating the script outline" },
       { status: 500 }
     );
   }

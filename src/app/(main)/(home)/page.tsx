@@ -86,6 +86,7 @@ const GeneratorsPage = () => {
             videoUrl: job.final_video_url
         }));
         setVideoJobs(fetchedJobs);
+        console.log(fetchedJobs);
         setVideoGenerationError(null); // Clear previous errors
       }
       setIsLoadingJobs(false);
@@ -107,7 +108,8 @@ const GeneratorsPage = () => {
     setGeneratedAudioUrl(url);
   };
 
-  const imagePrompts = sharedScriptSections.map(section => section.writingInstructions);
+  // Use image_generation_prompt from script sections
+  const imagePrompts = sharedScriptSections.map(section => section.image_generation_prompt);
   const defaultNumberOfImagesPerSectionPrompt = 1;
 
   // Moved image generation logic to GeneratorsPage

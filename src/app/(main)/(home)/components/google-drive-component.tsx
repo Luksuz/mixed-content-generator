@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import * as ScrollAreaPrimitive from '@radix-ui/react-scroll-area';
 import * as CollapsiblePrimitive from '@radix-ui/react-collapsible';
 import { 
@@ -37,7 +36,6 @@ interface Item {
 export default function GoogleDriveComponent() {
   const { data: session, status } = useSession();
   const [structure, setStructure] = useState<Item[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
@@ -74,17 +72,6 @@ export default function GoogleDriveComponent() {
     fetchStructure(); // Fetch on initial load/auth change
   }, [status]);
 
-  const toggleItemSelection = (item: Item) => {
-    setSelectedItems((prev) => {
-      const index = prev.findIndex((i) => i.id === item.id);
-      if (index > -1) {
-        return prev.filter((i) => i.id !== item.id);
-      } else {
-        return [...prev, item];
-      }
-    });
-  };
-
   const toggleFolderOpen = (folderId: string) => {
     setOpenFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
   };
@@ -112,13 +99,11 @@ export default function GoogleDriveComponent() {
       return;
     }
 
-    // Determine parent folder ID
-    // If exactly one folder is selected, use its ID. Otherwise, use 'root'.
-    const selectedFolders = selectedItems.filter(item => item.type === 'folder');
-    const parentId = selectedFolders.length === 1 ? selectedFolders[0].id : 'root';
+    // Simplified parentId logic for direct uploads, always uploads to 'root' for now
+    const parentId = 'root'; 
 
     setIsUploading(true);
-    const toastId = toast.loading(`Uploading ${fileToUpload.name}...`);
+    const toastId = toast.loading(`Uploading ${fileToUpload.name} to Drive root...`);
 
     const formData = new FormData();
     formData.append('file', fileToUpload);
@@ -128,7 +113,6 @@ export default function GoogleDriveComponent() {
       const response = await fetch('/api/upload-to-drive', {
         method: 'POST',
         body: formData,
-        // Headers are not usually needed for FormData with fetch, browser sets Content-Type
       });
 
       const result = await response.json();
@@ -138,9 +122,9 @@ export default function GoogleDriveComponent() {
       }
 
       toast.success(`Successfully uploaded ${result.fileName}!`, { id: toastId });
-      setFileToUpload(null); // Clear selection
-      if (fileInputRef.current) fileInputRef.current.value = ""; // Reset file input
-      await fetchStructure(); // Refresh the folder view
+      setFileToUpload(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      await fetchStructure(); 
 
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -234,12 +218,6 @@ export default function GoogleDriveComponent() {
                 </span>
               </button>
             </CollapsiblePrimitive.Trigger>
-            <Checkbox
-              id={`checkbox-${item.id}`}
-              checked={selectedItems.some((i) => i.id === item.id)}
-              onCheckedChange={() => toggleItemSelection(item)}
-              className="ml-auto flex-shrink-0"
-            />
           </div>
           <CollapsiblePrimitive.Content className="overflow-hidden">
             {item.children && item.children.length > 0 && (
@@ -261,12 +239,6 @@ export default function GoogleDriveComponent() {
           >
             {item.name}
           </span>
-          <Checkbox
-            id={`checkbox-${item.id}`}
-            checked={selectedItems.some((i) => i.id === item.id)}
-            onCheckedChange={() => toggleItemSelection(item)}
-            className="ml-auto flex-shrink-0"
-          />
         </div>
       );
     }
@@ -302,9 +274,7 @@ export default function GoogleDriveComponent() {
       )}
       {!isLoading && (
         <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t space-y-2 sm:space-y-0 sm:space-x-4">
-          {/* Left side: Selection info and File Input */}
-          <div className="flex items-center space-x-2">
-             <p className="text-sm text-muted-foreground flex-shrink-0">{selectedItems.length} item(s) selected</p>
+          <div className="flex items-center space-x-2 flex-grow min-w-0">
              {/* Hidden File Input */}
              <input 
                type="file" 
@@ -312,31 +282,29 @@ export default function GoogleDriveComponent() {
                onChange={handleFileChange} 
                style={{ display: 'none' }} 
              />
-             {/* Select File Button */}
              <Button 
                variant="outline" 
                size="sm" 
                onClick={handleSelectFileClick}
                disabled={isUploading}
              >
-               Select File
+               Select File to Upload to Root
              </Button>
-             {/* Display selected file name */}
              {fileToUpload && (
-               <span className="text-sm text-muted-foreground truncate" title={fileToUpload.name}> 
+               <span className="text-sm text-muted-foreground truncate flex-shrink-0" title={fileToUpload.name}> 
                  {fileToUpload.name}
                </span>
              )}
           </div>
           
-          {/* Right side: Upload Button */}
           <Button 
             onClick={handleUpload} 
             disabled={!fileToUpload || isUploading}
-            size="sm" // Match size
+            size="sm" 
+            className="flex-shrink-0"
           >
             <UploadCloud size={16} className="mr-2" />
-            {isUploading ? 'Uploading...' : 'Upload File'}
+            {isUploading ? 'Uploading...' : 'Upload to Root'}
           </Button>
         </div>
       )}
