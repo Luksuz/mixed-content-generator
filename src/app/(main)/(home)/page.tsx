@@ -38,7 +38,8 @@ const GeneratorsPage = () => {
 
   // Script Generator State
   const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>([]);
-  const [sharedFullScript, setSharedFullScript] = useState<string>("");
+  const [sharedFullScriptMarkdown, setSharedFullScriptMarkdown] = useState<string>("");
+  const [sharedFullScriptCleaned, setSharedFullScriptCleaned] = useState<string>("");
 
   // Audio Generator State - Lifted
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
@@ -99,8 +100,9 @@ const GeneratorsPage = () => {
     setSharedScriptSections(sections);
   };
 
-  const handleFullScriptUpdate = (script: string) => {
-    setSharedFullScript(script);
+  const handleFullScriptUpdate = (data: { scriptWithMarkdown: string, scriptCleaned: string }) => {
+    setSharedFullScriptMarkdown(data.scriptWithMarkdown);
+    setSharedFullScriptCleaned(data.scriptCleaned);
   };
 
   // Handler to update the lifted audio state
@@ -284,13 +286,13 @@ const GeneratorsPage = () => {
               onScriptSectionsChange={handleScriptSectionsUpdate} 
               onFullScriptChange={handleFullScriptUpdate}
               currentScriptSections={sharedScriptSections}
-              currentFullScript={sharedFullScript}
+              currentFullScript={sharedFullScriptMarkdown}
             />
           </TabsContent>
           
           <TabsContent value="audio" className="mt-0">
             <AudioGenerator 
-              initialText={sharedFullScript} 
+              initialText={sharedFullScriptCleaned}
               generatedAudioUrl={generatedAudioUrl}
               isGeneratingAudio={isGeneratingAudio}
               audioGenerationError={audioGenerationError}

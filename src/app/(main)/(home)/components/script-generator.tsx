@@ -12,7 +12,7 @@ import ReactMarkdown from "react-markdown";
 // Add new prop for callback
 interface ScriptGeneratorProps {
   onScriptSectionsChange?: (sections: ScriptSection[]) => void;
-  onFullScriptChange?: (script: string) => void;
+  onFullScriptChange?: (data: { scriptWithMarkdown: string, scriptCleaned: string }) => void;
   currentScriptSections?: ScriptSection[]; // New prop for controlled sections
   currentFullScript?: string; // New prop for controlled full script
 }
@@ -32,7 +32,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const handleGenerateOutline = async () => {
     try {
       setIsLoading(true);
-      if (onFullScriptChange) onFullScriptChange("");
+      if (onFullScriptChange) onFullScriptChange({ scriptWithMarkdown: "", scriptCleaned: "" });
       
       const response = await fetch("/api/generate-script", {
         method: "POST",
@@ -80,7 +80,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       
       const data = await response.json();
       if (onFullScriptChange) {
-        onFullScriptChange(data.script);
+        onFullScriptChange(data);
       }
     } catch (error) {
       console.error("Error generating full script:", error);
@@ -163,7 +163,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               onChange={(e) => setWordCount(Number(e.target.value))}
             />
             <p className="text-xs text-muted-foreground">
-              This will generate {Math.max(1, Math.floor(wordCount / 1000))} script sections
+              This will generate {Math.max(1, Math.floor(wordCount / 800))} script sections
             </p>
           </div>
 

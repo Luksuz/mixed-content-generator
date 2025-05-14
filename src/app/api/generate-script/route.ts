@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ChatOpenAI } from "@langchain/openai";
 import { StructuredOutputParser } from "langchain/output_parsers";
 import { scriptSectionsSchema } from "../../../../zodSchemas/scriptSection";
+import { removeMarkdown } from "../../../lib/utils";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     const parser = StructuredOutputParser.fromZodSchema(scriptSectionsSchema);
 
     // Calculate the number of sections based on word count
-    const numSections = Math.max(1, Math.floor(wordCount / 1500));
+    const numSections = Math.max(1, Math.floor(wordCount / 800));
 
     // Create the prompt for the model
     const prompt = `

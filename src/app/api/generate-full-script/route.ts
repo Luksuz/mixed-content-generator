@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { ChatOpenAI } from "@langchain/openai";
 import { ScriptSection } from "@/types";
+import { removeMarkdown } from "../../../lib/utils";
 
 export async function POST(request: Request) {
   try {
@@ -38,17 +39,19 @@ THEME: ${theme}
 SECTION ${index + 1} TITLE: ${section.title}
 WRITING INSTRUCTIONS: ${section.writingInstructions}
 
-Create an engaging section of the script based on these instructions. 
-Format your response using proper Markdown:
-- Use **bold** for emphasis
-- Use *italics* for character thoughts or important phrases
-- Use > blockquotes for memorable dialogue
-- Use proper paragraph breaks for readability
-- Use ### for sub-headings if needed
+Based on the WRITING INSTRUCTIONS, generate ONLY the text that is to be spoken aloud by a narrator for this section of the script.
+Your response must exclusively contain the narrative and dialogue that will be voiced.
+Do NOT include:
+- Scene headings (e.g., "INT. CAFE - DAY")
+- Character names before dialogue (unless the narrator is quoting someone like "John said: 'Hello'")
+- Parentheticals or action descriptions (e.g., "(smiles)", "[He walks to the window]")
+- Any visual descriptions or camera directions.
+- Any form of commentary or notes about the script itself.
 
-Focus on quality writing, compelling dialogue, and vivid descriptions.
-Write approximately 500-800 words for this section.
-DO NOT include any commentary, just the story content.
+The WRITING INSTRUCTIONS already contain guidance on plot, character interactions, thematic elements, and specific Call to Actions (CTAs) that the narrator must say. Your task is to transform these instructions into a polished, narratable script.
+
+Format the spoken text using Markdown where appropriate for emphasis or stylistic representation of speech (e.g., **bold** for emphasis, *italics* for thoughts if narrated).
+Maintain a word count of approximately 500-800 words for this section, consisting purely of speakable text.
 `;
 
       // Generate content for this section
@@ -82,11 +85,16 @@ DO NOT include any commentary, just the story content.
     completedSections.sort((a, b) => a.index - b.index);
     
     // Combine all sections into the full script with markdown headings
-    const fullScript = completedSections
+    const fullScriptWithMarkdown = completedSections
       .map(section => `## ${section.title}\n\n${section.content}\n\n`)
       .join('');
 
-    return NextResponse.json({ script: fullScript });
+    const scriptCleaned = removeMarkdown(fullScriptWithMarkdown);
+
+    return NextResponse.json({ 
+      scriptWithMarkdown: fullScriptWithMarkdown, 
+      scriptCleaned: scriptCleaned 
+    });
   } catch (error) {
     console.error("Error generating full script:", error);
     return NextResponse.json(
