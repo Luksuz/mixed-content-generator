@@ -27,6 +27,7 @@ const ScriptSectionCard = ({
     onUpdate({
       title: editedTitle,
       writingInstructions: editedInstructions,
+      image_generation_prompt: section.image_generation_prompt,
     });
     setIsEditing(false);
   };
