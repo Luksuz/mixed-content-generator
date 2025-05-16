@@ -259,17 +259,19 @@ export async function POST(request: NextRequest) {
     }
 
     const responseData = await shotstackResponse.json();
+    const shotstackId = responseData.response.id;
     console.log("Response from Shotstack API:", responseData);
+    console.log("Shotstack ID:", shotstackId);
 
     // Update database with Shotstack render ID
-    if (responseData.response?.id) {
+    if (shotstackId) {
+      console.log("Updating database with Shotstack ID:", shotstackId);
       await supabase
         .from('video_records')
         .update({
-          shotstack_id: responseData.response.id,
+          shotstack_id: shotstackId,
           status: 'processing',
           updated_at: new Date().toISOString(),
-          overlay_applied: isOverlayAvailable
         })
         .eq('id', videoId);
     }

@@ -67,6 +67,7 @@ const GeneratorsPage = () => {
     const fetchJobs = async () => {
       if (!selectedUserId) return; // Don't fetch if no user selected
 
+      console.log(`🔄 Polling: Fetching video jobs for user ${selectedUserId}`);
       setIsLoadingJobs(true);
       const supabase = createClient();
       
@@ -88,7 +89,7 @@ const GeneratorsPage = () => {
             videoUrl: job.final_video_url
         }));
         setVideoJobs(fetchedJobs);
-        console.log(`Fetched ${fetchedJobs.length} video jobs for user ${selectedUserId}`);
+        console.log(`✅ Polling: Successfully fetched ${fetchedJobs.length} video jobs for user ${selectedUserId}`);
         setVideoGenerationError(null); // Clear previous errors
       }
       setIsLoadingJobs(false);
@@ -98,10 +99,22 @@ const GeneratorsPage = () => {
     
     // If on video tab, set up polling for job updates
     const pollingInterval = activeTab === "video" ? 
-      setInterval(fetchJobs, 30000) : null; // Poll every 30 seconds
+      setInterval(() => {
+        console.log(`⏱️ Polling: Running scheduled video jobs update (every 30s)`);
+        fetchJobs();
+      }, 30000) : null; // Poll every 30 seconds
+    
+    if (pollingInterval) {
+      console.log(`🔄 Polling: Started polling for video jobs (${activeTab === "video" ? "active" : "inactive"} tab)`);
+    } else {
+      console.log(`⏹️ Polling: No polling activated (current tab: ${activeTab})`);
+    }
     
     return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
+      if (pollingInterval) {
+        console.log(`⏹️ Polling: Stopping video jobs polling interval`);
+        clearInterval(pollingInterval);
+      }
     };
   }, [selectedUserId, activeTab]); // Include activeTab in dependencies
 
