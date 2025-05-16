@@ -1,14 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateVideoRequestBody, CreateVideoResponse } from '@/types/video-generation';
+import { createClient } from '@/utils/supabase/server';
+import { v4 as uuidv4 } from 'uuid';
+import { getAudioDuration } from '@/utils/supabase-utils';
 
-// Ensure this URL is configured in your environment variables
-const VIDEO_GENERATION_API_URL = process.env.VIDEO_GENERATION_API_URL || 'http://localhost:8000/create-video';
+// Shotstack API settings from environment variables
+const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
+const SHOTSTACK_ENDPOINT = process.env.SHOTSTACK_ENDPOINT || 'https://api.shotstack.io/edit/stage';
+
+// Constant for dust overlay URL
+const DUST_OVERLAY_URL = 'https://byktarizdjtreqwudqmv.supabase.co/storage/v1/object/public/video-generator//overlay.webm';
+
+/**
+ * Checks if a URL is accessible by making a HEAD request
+ * @param url URL to check
+ * @returns boolean indicating if the URL is accessible
+ */
+async function isUrlAccessible(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch (error) {
+    console.warn(`Failed to access URL: ${url}`, error);
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body: CreateVideoRequestBody = await request.json();
-    const { imageUrls, audioUrl, userId } = body; // Assuming audioUrl and userId are passed in the request
+    const { imageUrls, audioUrl, subtitlesUrl, userId } = body;
 
+    // Validate inputs
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
       return NextResponse.json<CreateVideoResponse>({ error: 'Image URLs are required.' }, { status: 400 });
     }
@@ -16,48 +39,251 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<CreateVideoResponse>({ error: 'Audio URL is required.' }, { status: 400 });
     }
     if (!userId) {
-        // TODO: Implement proper user ID retrieval, e.g., from session
-        console.warn("User ID not provided in request. Sending a placeholder.");
-        // return NextResponse.json<CreateVideoResponse>({ error: 'User ID is required.' }, { status: 400 });
+      return NextResponse.json<CreateVideoResponse>({ error: 'User ID is required.' }, { status: 400 });
     }
 
-    const payloadToFastAPI = {
-      user_id: userId || "placeholder_user_id", // Replace with actual user ID retrieval
-      image_urls: imageUrls,
-      audio_url: audioUrl,
-    };
+    // Generate a unique ID for this video
+    const videoId = uuidv4();
+    console.log(`Starting video creation with ID: ${videoId} for user: ${userId}`);
 
-    console.log("Forwarding video creation request to FastAPI service:", payloadToFastAPI);
-    console.log("FastAPI service URL:", VIDEO_GENERATION_API_URL);
+    // Initialize Supabase client
+    const supabase = createClient();
+    
+    // Create a record in the database to track this job
+    const { error: dbError } = await supabase
+      .from('video_records')
+      .insert({
+        id: videoId,
+        user_id: userId,
+        status: 'pending',
+        image_urls: imageUrls,
+        audio_url: audioUrl,
+        subtitles_url: subtitlesUrl,
+        thumbnail_url: imageUrls[0], // Use the first image as thumbnail
+        created_at: new Date().toISOString()
+      });
 
-    const fastApiResponse = await fetch(VIDEO_GENERATION_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payloadToFastAPI),
-    });
-
-    const responseData: CreateVideoResponse = await fastApiResponse.json();
-
-    if (!fastApiResponse.ok) {
-      console.error('FastAPI service returned an error:', fastApiResponse.status, responseData);
+    if (dbError) {
+      console.error('Error creating video record in database:', dbError);
       return NextResponse.json<CreateVideoResponse>(
-        { error: responseData.error || 'Failed to process video via external service.', details: (responseData as any).details },
-        { status: fastApiResponse.status }
+        { error: 'Failed to create video record.', details: dbError.message },
+        { status: 500 }
       );
     }
 
-    console.log("Response from FastAPI service:", responseData);
-    // The FastAPI service now returns a 202 with a message and video_id
-    // The actual video URL will be updated in the DB by the FastAPI service.
-    // The client might need a way to poll for status or receive updates (e.g., via WebSockets or Supabase Realtime)
-    return NextResponse.json<CreateVideoResponse>(responseData, { status: fastApiResponse.status });
+    // Get audio duration to set video length
+    console.log('Getting audio duration for timeline...');
+    const audioDuration = await getAudioDuration(audioUrl);
+    
+    // Calculate timeline durations
+    // If we can't get audio duration, default to 5 minutes
+    const totalDuration = audioDuration || 300; 
+    // First minute is for alternating images, or shorter if audio is shorter
+    const firstPartDuration = Math.min(60, totalDuration * 0.6); 
+    // Image display time depends on how many images we have
+    const imageDuration = Math.floor(firstPartDuration / imageUrls.length);
+    
+    // Second part is the rest of the audio (or at least 10 seconds for zoom effect)
+    const secondPartDuration = Math.max(totalDuration - firstPartDuration, 10);
+    
+    console.log(`Timeline configuration:
+      - Total duration: ${totalDuration.toFixed(1)} seconds
+      - First part (alternating images): ${firstPartDuration.toFixed(1)} seconds
+      - Each image display time: ${imageDuration.toFixed(1)} seconds
+      - Second part (zoom effect): ${secondPartDuration.toFixed(1)} seconds`);
+    
+    // Create multiple clips for zoom in/out effect since Shotstack doesn't have a direct "zoomInOut" effect
+    // We'll create alternating zoom in and zoom out clips with faster cycles
+    const zoomClips = [];
+    const zoomDuration = 5; // Each zoom cycle lasts 5 seconds (instead of 10)
+    const numZoomCycles = Math.ceil(secondPartDuration / (zoomDuration * 2));
+    
+    for (let i = 0; i < numZoomCycles; i++) {
+      // Add zoom in clip
+      zoomClips.push({
+        asset: {
+          type: "image",
+          src: imageUrls[imageUrls.length - 1]
+        },
+        start: firstPartDuration + (i * zoomDuration * 2),
+        length: zoomDuration,
+        effect: "zoomIn",
+        fit: "cover"
+      });
+      
+      // Add zoom out clip if there's still time left
+      if (firstPartDuration + (i * zoomDuration * 2) + zoomDuration < totalDuration) {
+        zoomClips.push({
+          asset: {
+            type: "image",
+            src: imageUrls[imageUrls.length - 1]
+          },
+          start: firstPartDuration + (i * zoomDuration * 2) + zoomDuration,
+          length: Math.min(zoomDuration, totalDuration - (firstPartDuration + (i * zoomDuration * 2) + zoomDuration)),
+          effect: "zoomOut",
+          fit: "cover"
+        });
+      }
+    }
+
+    // Check if the dust overlay is accessible
+    const isOverlayAvailable = await isUrlAccessible(DUST_OVERLAY_URL);
+    console.log(`Dust overlay availability check: ${isOverlayAvailable ? 'Available' : 'Not available'}`);
+
+    // Initialize tracks array
+    let tracks = [];
+
+    // Track for subtitles (captions) - Add this first if it exists
+    if (subtitlesUrl) {
+      console.log(`Adding subtitles to video: ${subtitlesUrl}`);
+      const captionTrack = {
+        clips: [
+          {
+            asset: {
+              type: "caption",
+              src: subtitlesUrl
+            },
+            start: 0,
+            length: totalDuration,
+            position: "bottom"
+          }
+        ]
+      };
+      tracks.push(captionTrack);
+    }
+
+    // Track for images
+    const imageTrack = {
+      clips: [
+        ...imageUrls.map((url, index) => ({
+          asset: {
+            type: "image",
+            src: url
+          },
+          start: index * imageDuration,
+          length: imageDuration,
+          effect: index % 2 === 0 ? "zoomIn" : "slideLeft", // Example effects
+          fit: "cover"
+        })),
+        ...zoomClips // Last image zoom in/out
+      ]
+    };
+    tracks.push(imageTrack);
+
+    // Track for main audio (if audioUrl is present)
+    if (audioUrl) {
+        const audioTrack = {
+            clips: [{
+                asset: {
+                    type: "audio",
+                    src: audioUrl,
+                    volume: 1 // Ensure audio is audible
+                },
+                start: 0,
+                length: totalDuration // Audio plays for the whole duration
+            }]
+        };
+        tracks.push(audioTrack);
+    }
+
+    // Prepend dust overlay track if available (becomes the first track)
+    if (isOverlayAvailable) {
+      const overlayTrack = {
+        clips: [
+          {
+            asset: {
+              type: "video",
+              src: DUST_OVERLAY_URL,
+              volume: 0
+            },
+            start: 0,
+            length: totalDuration,
+            fit: "cover",
+            opacity: 0.3
+          }
+        ]
+      };
+      tracks.unshift(overlayTrack);
+    }
+    
+    const timeline: any = {
+      // Removed global soundtrack based on user's example payload structure
+      // background: "#000000", // Assuming you want a black background, or remove for default
+      tracks: tracks
+    };
+
+    const shotstackPayload = {
+      timeline: timeline,
+      output: {
+        format: "mp4",
+        size: {
+          width: 1280,
+          height: 720
+        }
+      },
+      callback: process.env.SHOTSTACK_CALLBACK_URL
+    };
+
+    console.log("Sending video creation request to Shotstack API");
+
+    // Send request to Shotstack
+
+    console.log("Shotstack payload:", JSON.stringify(shotstackPayload, null, 2));
+    const shotstackResponse = await fetch(`${SHOTSTACK_ENDPOINT}/render`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": SHOTSTACK_API_KEY
+      },
+      body: JSON.stringify(shotstackPayload),
+    });
+
+    if (!shotstackResponse.ok) {
+      const errorData = await shotstackResponse.json();
+      console.error('Shotstack API error:', errorData);
+      
+      // Update database record with error
+      await supabase
+        .from('video_records')
+        .update({
+          status: 'failed',
+          error_message: `Shotstack API error: ${JSON.stringify(errorData)}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', videoId);
+      
+      return NextResponse.json<CreateVideoResponse>(
+        { error: 'Failed to create video with Shotstack API', details: JSON.stringify(errorData) },
+        { status: shotstackResponse.status }
+      );
+    }
+
+    const responseData = await shotstackResponse.json();
+    console.log("Response from Shotstack API:", responseData);
+
+    // Update database with Shotstack render ID
+    if (responseData.response?.id) {
+      await supabase
+        .from('video_records')
+        .update({
+          shotstack_id: responseData.response.id,
+          status: 'processing',
+          updated_at: new Date().toISOString(),
+          overlay_applied: isOverlayAvailable
+        })
+        .eq('id', videoId);
+    }
+
+    // Return success response with video ID
+    return NextResponse.json<CreateVideoResponse>({
+      message: 'Video creation job started successfully',
+      video_id: videoId
+    }, { status: 202 });
 
   } catch (error: any) {
     console.error('Error in /api/create-video route:', error);
     return NextResponse.json<CreateVideoResponse>(
-      { error: 'Failed to forward video creation request.', details: error.message || 'Unknown error' },
+      { error: 'Failed to process video creation request', details: error.message || 'Unknown error' },
       { status: 500 }
     );
   }

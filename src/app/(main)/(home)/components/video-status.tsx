@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { Download, AlertCircle, Clock, CheckCircle, Loader2, UploadCloud, ChevronsUpDown, Check } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Download, AlertCircle, Clock, CheckCircle, Loader2, UploadCloud, ChevronsUpDown, Check, Film } from 'lucide-react';
+import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { useInterval } from "@/hooks/use-interval";
 
 export interface VideoJob {
   id: string; // video_id from backend
@@ -18,6 +19,8 @@ export interface VideoJob {
   createdAt: Date | string; // Store as Date object or ISO string
   updatedAt?: Date | string;
   user_id: string; // Add user_id field
+  thumbnail_url?: string | null;
+  subtitles_url?: string | null; // Add subtitles URL field
 }
 
 interface DriveFolder {
@@ -36,6 +39,50 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
   const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
   const [jobToUpload, setJobToUpload] = useState<VideoJob | null>(null);
   const [isUploadingToDrive, setIsUploadingToDrive] = useState<boolean>(false);
+  const [pollingJobs, setPollingJobs] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const inProgressJobs = jobs.filter(job => 
+      job.status === 'pending' || job.status === 'processing'
+    );
+    
+    setPollingJobs(new Set(inProgressJobs.map(job => job.id)));
+  }, [jobs]);
+
+  useInterval(() => {
+    if (pollingJobs.size === 0) return;
+
+    const checkJobStatus = async (jobId: string) => {
+      try {
+        const response = await fetch(`/api/video-status/${jobId}`);
+        
+        if (!response.ok) {
+          console.error(`Error checking status for job ${jobId}:`, response.statusText);
+          return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'completed' || data.status === 'failed') {
+          setPollingJobs(prev => {
+            const updated = new Set(prev);
+            updated.delete(jobId);
+            return updated;
+          });
+          
+          if (data.status === 'completed') {
+            toast.success(`Video "${jobId}" is ready!`);
+          } else {
+            toast.error(`Video processing failed: ${data.errorMessage || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to check status for job ${jobId}:`, error);
+      }
+    };
+
+    Array.from(pollingJobs).forEach(checkJobStatus);
+  }, 10000);
 
   const getStatusBadgeVariant = (status: VideoJob['status']): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -156,6 +203,12 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
     <Card className="mt-8">
       <CardHeader>
         <CardTitle>Video Generation Jobs</CardTitle>
+        {pollingJobs.size > 0 && (
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Polling for updates on {pollingJobs.size} job(s)...
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
@@ -167,18 +220,51 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
           <p className="text-sm text-muted-foreground">No video generation jobs found for the selected user.</p>
         ) : (
           jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job) => (
-            <div key={job.id} className="p-4 border rounded-md space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-sm font-medium truncate mr-2" title={job.id}>Job ID: {job.id.substring(0, 8)}...</p>
-                    <p className="text-xs text-muted-foreground">
-                        Started: {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
-                    </p>
+            <div key={job.id} className="flex flex-col sm:flex-row rounded-lg overflow-hidden border shadow-sm">
+              {/* Thumbnail section */}
+              <div className="sm:w-48 h-32 sm:h-full bg-muted relative flex-shrink-0">
+                {job.thumbnail_url ? (
+                  <img 
+                    src={job.thumbnail_url} 
+                    alt="Video thumbnail" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <Film className="h-10 w-10 text-muted-foreground" />
                 </div>
-                <Badge variant={getStatusBadgeVariant(job.status)} className="capitalize flex items-center gap-1 flex-shrink-0">
+                )}
+                <Badge 
+                  variant={getStatusBadgeVariant(job.status)} 
+                  className="absolute top-2 right-2 capitalize flex items-center gap-1"
+                >
                    {getStatusIcon(job.status)} 
                    {job.status}
                 </Badge>
+              </div>
+              
+              {/* Details section */}
+              <div className="flex-1 p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-sm font-medium truncate mr-2" title={job.id}>
+                      Video ID: {job.id.substring(0, 8)}...
+                    </h3>
+                    <span className="text-xs text-muted-foreground flex flex-wrap">
+                      <span className="mr-2">Created: {formatDistanceToNow(new Date(job.createdAt))} ago</span>
+                      {job.updatedAt && (
+                        <span>Updated: {formatDistanceToNow(new Date(job.updatedAt))} ago</span>
+                      )}
+                    </span>
+                    {job.subtitles_url && (
+                      <span className="text-xs text-blue-500 flex items-center mt-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        With subtitles
+                      </span>
+                    )}
+                  </div>
               </div>
               
               {job.status === 'completed' && job.videoUrl && (
@@ -252,7 +338,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
               )}
 
               {job.status === 'failed' && job.errorMessage && (
-                <Alert variant="destructive" className="mt-2">
+                  <Alert variant="destructive" className="mt-2 text-xs">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Error</AlertTitle>
                   <AlertDescription className="text-xs">
@@ -260,6 +346,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                   </AlertDescription>
                 </Alert>
               )}
+              </div>
             </div>
           ))
         )}

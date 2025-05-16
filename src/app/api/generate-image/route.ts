@@ -10,6 +10,8 @@ const openai = new OpenAI({
 });
 
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
+const BATCH_SIZE = 5; // Process 5 images at a time
+const BATCH_INTERVAL_MS = 5000; // 5 seconds between batches
 
 // Helper function for retrying an async operation
 async function retryAsync<T>(
@@ -29,6 +31,36 @@ async function retryAsync<T>(
         await new Promise(resolve => setTimeout(resolve, delayMs * attempt)); // Exponential backoff can be considered
         return retryAsync(fn, retries, delayMs, attempt + 1);
     }
+}
+
+// Helper function to process images in batches with rate limiting
+async function processBatches<T>(
+    items: (() => Promise<T>)[],
+    batchSize: number = BATCH_SIZE,
+    intervalMs: number = BATCH_INTERVAL_MS
+): Promise<PromiseSettledResult<T>[]> {
+    const results: PromiseSettledResult<T>[] = [];
+    
+    // Process items in batches
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batchEnd = Math.min(i + batchSize, items.length);
+        console.log(`Processing batch ${i/batchSize + 1}: items ${i+1} to ${batchEnd} of ${items.length}`);
+        
+        // Create a batch of promises
+        const batch = items.slice(i, batchEnd).map(fn => fn());
+        
+        // Wait for the current batch to complete
+        const batchResults = await Promise.allSettled(batch);
+        results.push(...batchResults);
+        
+        // If not the last batch, wait before processing the next batch
+        if (batchEnd < items.length) {
+            console.log(`Rate limiting: waiting ${intervalMs/1000} seconds before next batch...`);
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+        }
+    }
+    
+    return results;
 }
 
 export async function POST(request: NextRequest) {
@@ -72,46 +104,66 @@ export async function POST(request: NextRequest) {
         // --- OpenAI Logic ---
         if (provider === 'openai') {
             console.log(`Generating ${numberOfImages} image(s) with OpenAI DALL-E 3...`);
-            // Note: DALL-E 3 only supports n=1, handle numberOfImages > 1 if needed (e.g., loop or warning)
-            if (numberOfImages > 1) {
-                 console.warn("OpenAI DALL-E 3 requested for > 1 image, but only 1 generated per API call in this implementation.");
-                 // If multiple DALL-E 3 images are truly needed, this loop needs to make multiple API calls.
-                 // For now, we proceed with generating just one.
-            }
+            
+            // Helper function for a single OpenAI generation + upload
+            const generateAndUploadSingleOpenAIImage = async (promptVariation: string = prompt): Promise<string | null> => {
+                const attemptGeneration = async (): Promise<string | null> => {
+                    try {
+                        const response = await openai.images.generate({
+                            model: "gpt-image-1",
+                            prompt: promptVariation,
+                            n: 1, // DALL-E 3 supports only 1
+                            size: "1536x1024",
+                        });
 
-            try {
-                const generateOpenAIImage = async () => {
-                    const response = await openai.images.generate({
-                        model: "gpt-image-1",
-                        prompt: prompt,
-                        n: 1, // DALL-E 3 supports only 1
-                        response_format: 'b64_json', // Always get base64 for upload
-                        size: "1536x1024",
-                    });
-
-                    if (response.data?.[0]?.b64_json) {
-                        const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
-                        const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
-                        const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
-                        if (supabaseUrl) {
+                        if (response.data?.[0]?.b64_json) {
+                            const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
+                            const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
+                            const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                            
+                            if (!supabaseUrl) {
+                                console.warn("Failed to upload an OpenAI generated image to Supabase.");
+                                return null;
+                            }
                             return supabaseUrl;
                         } else {
-                            throw new Error("Failed to upload an OpenAI generated image to Supabase.");
+                            throw new Error('OpenAI response did not contain expected image data.');
                         }
-                    } else {
-                        throw new Error('OpenAI response did not contain expected image data.');
+                    } catch (error) {
+                        console.error('Error during single OpenAI image generation/upload attempt:', error);
+                        throw error;
                     }
                 };
+                
+                // Wrap the attemptGeneration with retryAsync
+                return retryAsync(attemptGeneration);
+            };
 
-                const supabaseUrl = await retryAsync(generateOpenAIImage);
-                if (supabaseUrl) {
-                    supabaseImageUrls.push(supabaseUrl);
+            // Create slight variations of the prompt for multiple images to avoid duplicates
+            const promptVariations = Array(numberOfImages).fill(0).map((_, i) => {
+                if (i === 0) return prompt; // First image with original prompt
+                return `${prompt} (variation ${i})`; // Add subtle variation
+            });
+
+            // Create generation functions (not promises yet)
+            const imageGenerationFunctions = promptVariations.map(
+                promptVar => () => generateAndUploadSingleOpenAIImage(promptVar)
+            );
+
+            console.log(`Starting batch processing for ${imageGenerationFunctions.length} OpenAI image generations...`);
+            
+            // Process in batches with rate limiting
+            const settledResults = await processBatches(imageGenerationFunctions);
+
+            settledResults.forEach((result, index) => {
+                if (result.status === 'fulfilled' && result.value) {
+                    supabaseImageUrls.push(result.value);
+                } else if (result.status === 'rejected') {
+                    console.error(`Failed to generate/upload OpenAI image ${index + 1}:`, result.reason);
+                } else if (result.status === 'fulfilled' && result.value === null) {
+                    console.warn(`OpenAI image ${index + 1} generation completed but upload failed.`);
                 }
-            } catch (error: any) {
-                 console.error("Error during OpenAI image generation/upload (after retries):", error);
-                 // Re-throw or return specific error response
-                 throw new Error(`OpenAI image generation failed: ${error.message}`);
-            }
+            });
         }
         // --- MiniMax Logic ---
         else if (provider === 'minimax') {
@@ -173,13 +225,15 @@ export async function POST(request: NextRequest) {
                 return retryAsync(attemptGeneration);
             };
 
-            // Create and run promises in parallel
-            const imageGenerationPromises: Promise<string | null>[] = [];
-            for (let i = 0; i < numberOfImages; i++) {
-                imageGenerationPromises.push(generateAndUploadSingleMinimaxImage());
-            }
+            // Create generation functions (not promises yet)
+            const imageGenerationFunctions = Array(numberOfImages).fill(0).map(() => 
+                () => generateAndUploadSingleMinimaxImage()
+            );
 
-            const settledResults = await Promise.allSettled(imageGenerationPromises);
+            console.log(`Starting batch processing for ${imageGenerationFunctions.length} MiniMax image generations...`);
+            
+            // Process in batches with rate limiting
+            const settledResults = await processBatches(imageGenerationFunctions);
 
             settledResults.forEach((result, index) => {
                 if (result.status === 'fulfilled' && result.value) {

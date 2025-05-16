@@ -7,15 +7,18 @@ import { removeMarkdown } from "../../../lib/utils";
 
 export async function POST(request: Request) {
   try {
-    const { title, theme, sections } = await request.json();
-    console.log("Received request with title:", title);
-    console.log("Received request with theme:", theme);
-    console.log("Received request with sections:", sections);
+    const requestData = await request.json();
+    const { title, theme, sections } = requestData;
     
-    if (!title || !theme || !sections || sections.length === 0) {
-      console.log("Missing required fields");
+    console.log("Received request for script generation:");
+    console.log("- Title:", title);
+    console.log("- Theme:", theme);
+    console.log("- Sections:", Array.isArray(sections) ? `${sections.length} sections` : "None");
+    
+    if (!title || !theme || !sections || !Array.isArray(sections) || sections.length === 0) {
+      console.log("Missing or invalid required fields");
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing or invalid required fields" },
         { status: 400 }
       );
     }
@@ -28,9 +31,12 @@ export async function POST(request: Request) {
     });
     console.log("Model initialized");
 
-    // Process all sections concurrently
-    const sectionPromises = sections.map(async (section: ScriptSection, index: number) => {
-      // Create a prompt for each section
+    // Create an async function to process a single section
+    const processSection = async (section: ScriptSection, index: number) => {
+      try {
+        console.log(`Started processing section ${index + 1}: ${section.title}`);
+        
+        // Create a prompt for this section
       const sectionPrompt = `
 You are a professional writer creating a section of a script based on the following outline:
 
@@ -56,6 +62,8 @@ Maintain a word count of approximately 500-800 words for this section, consistin
 
       // Generate content for this section
       const response = await model.invoke(sectionPrompt);
+        
+        // Carefully extract content ensuring it's valid text
       let sectionContent = "";
       
       if (typeof response.content === 'string') {
@@ -64,32 +72,76 @@ Maintain a word count of approximately 500-800 words for this section, consistin
         sectionContent = response.content
           .map(item => {
             if (typeof item === 'string') return item;
-            if ('text' in item) return item.text;
+              if (item && typeof item === 'object' && 'text' in item) return item.text;
             return '';
           })
           .join('\n');
       }
 
-      // Return the section with its index to maintain order
+        // Validate we actually got content
+        if (!sectionContent || sectionContent.trim() === '') {
+          console.warn(`Warning: Empty content returned for section ${index + 1}`);
+          sectionContent = `[Content for "${section.title}" could not be generated.]`;
+        }
+
+        console.log(`✓ Section ${index + 1} processed successfully: ${sectionContent.length} characters`);
+        
+        // Return the processed section
+        return {
+          index,
+          title: section.title,
+          content: sectionContent,
+          success: true
+        };
+        
+      } catch (sectionError) {
+        console.error(`Error processing section ${index + 1}:`, sectionError);
+        
+        // Return a placeholder for the failed section
       return {
         index,
         title: section.title,
-        content: sectionContent
+          content: `[An error occurred while generating content for "${section.title}". Please try again.]`,
+          success: false
       };
-    });
+      }
+    };
 
-    // Wait for all sections to complete
-    const completedSections = await Promise.all(sectionPromises);
+    // Process all sections concurrently
+    console.log(`Starting parallel processing of ${sections.length} sections...`);
+    const sectionPromises = sections.map((section, index) => processSection(section, index));
+    const results = await Promise.allSettled(sectionPromises);
     
-    // Sort sections by index to maintain order
-    completedSections.sort((a, b) => a.index - b.index);
+    // Extract results, preserving order and handling any rejected promises
+    const processedSections = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        console.error(`Promise rejected for section ${index + 1}:`, result.reason);
+        return {
+          index,
+          title: sections[index].title,
+          content: `[Failed to generate content for this section. Please try again.]`,
+          success: false
+        };
+      }
+    });
+    
+    // Sort sections by index to ensure correct order
+    processedSections.sort((a, b) => a.index - b.index);
+    
+    // Log success/failure stats
+    const successCount = processedSections.filter(s => s.success).length;
+    console.log(`Processing complete: ${successCount}/${sections.length} sections successful`);
     
     // Combine all sections into the full script with markdown headings
-    const fullScriptWithMarkdown = completedSections
+    const fullScriptWithMarkdown = processedSections
       .map(section => `## ${section.title}\n\n${section.content}\n\n`)
       .join('');
 
     const scriptCleaned = removeMarkdown(fullScriptWithMarkdown);
+    
+    console.log("Full script generated successfully");
 
     return NextResponse.json({ 
       scriptWithMarkdown: fullScriptWithMarkdown, 
@@ -98,7 +150,7 @@ Maintain a word count of approximately 500-800 words for this section, consistin
   } catch (error) {
     console.error("Error generating full script:", error);
     return NextResponse.json(
-      { error: "Failed to generate full script" },
+      { error: "Failed to generate full script", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }

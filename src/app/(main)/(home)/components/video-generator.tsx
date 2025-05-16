@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Film, ImageOff, AlertCircle, Loader2, Video } from "lucide-react";
+import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { GeneratedImageSet } from "@/types/image-generation";
 
@@ -28,6 +28,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
 }) => {
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
 
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
@@ -55,13 +56,24 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
       return;
         }
     setLocalError(null);
+    setShowSuccessMessage(false);
     await onStartVideoCreation(selectedImageUrls);
+    setShowSuccessMessage(true);
   };
 
   useEffect(() => {
     setSelectedImageUrls(prevSelected => prevSelected.filter(url => allImageUrls.includes(url)));
   }, [allImageUrls]);
 
+  // Hide success message after 10 seconds
+  useEffect(() => {
+    if (showSuccessMessage) {
+      const timer = setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessMessage]);
 
   return (
     <div className="space-y-8">
@@ -71,8 +83,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
             <Film size={24} /> Video Generator from Images
           </CardTitle>
           <CardDescription>
-            Select images from your generated collection to create a short video.
-            The video will be 1 minute long, with each image displayed for an equal amount of time.
+            Select images from your generated collection to create a video. The first minute will show your images
+            in sequence, and the rest will feature the last image with zoom effects.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -89,6 +101,19 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Video Generation Error</AlertTitle>
               <AlertDescription>{videoGenerationError}</AlertDescription>
+            </Alert>
+          )}
+
+          {showSuccessMessage && !isGeneratingVideo && !videoGenerationError && (
+            <Alert variant="default" className="bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <AlertTitle>Video Creation Started</AlertTitle>
+              <AlertDescription className="flex flex-col space-y-1">
+                <p>Your video is being created. This may take a few minutes.</p>
+                <p className="flex items-center text-sm">
+                  <ArrowDown className="h-3 w-3 mr-1" /> Check the <span className="font-semibold mx-1">Video Status</span> section below for updates.
+                </p>
+              </AlertDescription>
             </Alert>
           )}
 
@@ -138,7 +163,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
             {isGeneratingVideo ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating Video...
+                Creating Video...
               </>
             ) : (
               "Confirm and Create Video"
@@ -146,45 +171,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                   </Button>
         </CardContent>
       </Card>
-
-      {(isGeneratingVideo || generatedVideoUrl || videoGenerationError) && (
-         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Video size={24}/> Generated Video
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                {isGeneratingVideo && (
-                    <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-                        <Loader2 size={48} className="mb-4 animate-spin" />
-                        <p>Your video is being generated. This might take a moment...</p>
-                    </div>
-                )}
-                {generatedVideoUrl && !isGeneratingVideo && (
-                <div className="border rounded-lg overflow-hidden shadow-sm">
-                    <video controls src={generatedVideoUrl} className="w-full aspect-video bg-muted">
-                    Your browser does not support the video tag.
-                    </video>
-                    <div className="p-4 bg-muted/30">
-                      <a href={generatedVideoUrl} download target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" className="w-full">Download Video</Button>
-                      </a>
-                  </div>
-                </div>
-                )}
-                {videoGenerationError && !isGeneratingVideo && (
-                     <p className="text-center text-destructive">Video generation failed. Please see error above.</p>
-                )}
-                 {!isGeneratingVideo && !generatedVideoUrl && !videoGenerationError && (
-                    <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg text-muted-foreground">
-                        <Film size={48} className="mb-4" />
-                        <p>Your generated video will appear here once created.</p>
-          </div>
-        )}
-            </CardContent>
-         </Card>
-      )}
     </div>
   );
 };

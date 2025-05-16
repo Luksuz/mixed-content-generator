@@ -21,4 +21,5 @@ export interface GeneratedImageSet {
   originalPrompt: string;
   imageUrls: string[];
   imageData: string[]; 
+  error?: string; // Add optional error property
 } 

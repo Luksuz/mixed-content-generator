@@ -45,6 +45,7 @@ const GeneratorsPage = () => {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
   const [audioGenerationError, setAudioGenerationError] = useState<string | null>(null);
+  const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(null);
 
   // Image Generator State - Lifted
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
@@ -87,14 +88,22 @@ const GeneratorsPage = () => {
             videoUrl: job.final_video_url
         }));
         setVideoJobs(fetchedJobs);
-        console.log(fetchedJobs);
+        console.log(`Fetched ${fetchedJobs.length} video jobs for user ${selectedUserId}`);
         setVideoGenerationError(null); // Clear previous errors
       }
       setIsLoadingJobs(false);
     };
 
     fetchJobs();
-  }, [selectedUserId]); // Re-run when selectedUserId changes
+    
+    // If on video tab, set up polling for job updates
+    const pollingInterval = activeTab === "video" ? 
+      setInterval(fetchJobs, 30000) : null; // Poll every 30 seconds
+    
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [selectedUserId, activeTab]); // Include activeTab in dependencies
 
   const handleScriptSectionsUpdate = (sections: ScriptSection[]) => {
     setSharedScriptSections(sections);
@@ -108,6 +117,15 @@ const GeneratorsPage = () => {
   // Handler to update the lifted audio state
   const handleAudioGenerated = (url: string | null) => {
     setGeneratedAudioUrl(url);
+    if (url === null) {
+      // If audio is cleared, also clear subtitles since they're based on the audio
+      setGeneratedSubtitlesUrl(null);
+    }
+  };
+
+  // Handler to update the lifted subtitles state
+  const handleSubtitlesGenerated = (url: string | null) => {
+    setGeneratedSubtitlesUrl(url);
   };
 
   // Use image_generation_prompt from script sections
@@ -129,53 +147,56 @@ const GeneratorsPage = () => {
     setIsGeneratingImages(true);
     setImageGenerationError(null);
     setGeneratedImageSetsList([]); 
-    const resultsForAllPrompts: GeneratedImageSet[] = [];
+    setCurrentImageGeneratingInfo(`Generating images for ${promptsForGeneration.length} prompts using batched processing...`);
+    
+    try {
+      // Use the new batch processing endpoint with rate limiting
+      const response = await fetch('/api/generate-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          prompts: promptsForGeneration,
+          minimaxAspectRatio: "16:9",
+          userId: selectedUserId || 'unknown_user'
+        }),
+      });
 
-    for (let i = 0; i < promptsForGeneration.length; i++) {
-      const currentPrompt = promptsForGeneration[i];
-      if (!currentPrompt || currentPrompt.trim() === '') {
-        console.warn(`Skipping empty prompt at index ${i} in GeneratorsPage`);
-        resultsForAllPrompts.push({ originalPrompt: currentPrompt || "Empty Prompt", imageUrls: [], imageData: [] });
-        continue;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate images');
       }
-      setCurrentImageGeneratingInfo(`Generating for prompt ${i + 1} of ${promptsForGeneration.length}: "${currentPrompt.substring(0, 30)}..."`);
+
+      const data = await response.json();
       
-      try {
-        const requestBody: GenerateImageRequestBody = {
-          provider: provider,
-          prompt: currentPrompt,
-          numberOfImages: numberOfImagesPerPrompt,
-          outputFormat: 'url',
+      if (data.imageUrls && Array.isArray(data.imageUrls)) {
+        // Convert the flat array of image URLs to a GeneratedImageSet format
+        const newImageSet: GeneratedImageSet = {
+          originalPrompt: promptsForGeneration.join(' | '),
+          imageUrls: data.imageUrls,
+          imageData: []
         };
-
-        const response = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        });
-
-        const data = (await response.json()) as GenerateImageResponse;
-
-        if (!response.ok || data.error) {
-          const errorMsg = data.error || `Failed for: ${currentPrompt.substring(0, 30)}...`;
-          setImageGenerationError(prev => prev ? `${prev}\n${errorMsg}` : errorMsg);
-          resultsForAllPrompts.push({ originalPrompt: currentPrompt, imageUrls: [], imageData: [] });
-        } else {
-          resultsForAllPrompts.push({
-            originalPrompt: currentPrompt,
-            imageUrls: data.imageUrls || [],
-            imageData: data.imageData || [],
-          });
+        
+        setGeneratedImageSetsList([newImageSet]);
+        console.log(`Successfully generated ${data.imageUrls.length} images`);
+        
+        // Log any failed prompts
+        if (data.failedPrompts && data.failedPrompts.length > 0) {
+          console.warn(`${data.failedPrompts.length} prompts failed to generate:`, 
+            data.failedPrompts.map((f: {index: number; prompt: string; error?: string}) => 
+              `Index ${f.index}: ${f.prompt.substring(0, 30)}... - ${f.error}`).join('\n'));
         }
-      } catch (err: any) {
-        const errorMsg = err.message || `Network error for: ${currentPrompt.substring(0, 30)}...`;
-        setImageGenerationError(prev => prev ? `${prev}\n${errorMsg}` : errorMsg);
-        resultsForAllPrompts.push({ originalPrompt: currentPrompt, imageUrls: [], imageData: [] });
+      } else {
+        setImageGenerationError('Received invalid response from image generation service');
       }
+    } catch (err: any) {
+      const errorMsg = err.message || 'An unexpected error occurred during image generation';
+      console.error('Image generation error:', err);
+      setImageGenerationError(errorMsg);
+    } finally {
+      setIsGeneratingImages(false);
+      setCurrentImageGeneratingInfo(null);
     }
-    setGeneratedImageSetsList(resultsForAllPrompts);
-    setIsGeneratingImages(false);
-    setCurrentImageGeneratingInfo(null);
   };
 
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
@@ -204,9 +225,12 @@ const GeneratorsPage = () => {
     try {
       const requestBody: CreateVideoRequestBody = {
         imageUrls: selectedImageUrls,
-        audioUrl: generatedAudioUrl ?? undefined, 
-        userId: selectedUserId, // Use the state variable
+        audioUrl: generatedAudioUrl,
+        subtitlesUrl: generatedSubtitlesUrl || undefined,
+        userId: selectedUserId,
       };
+      
+      console.log(`Creating video with ${selectedImageUrls.length} images, audio, and ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}.`);
       
       const response = await fetch('/api/create-video', {
         method: 'POST',
@@ -217,23 +241,35 @@ const GeneratorsPage = () => {
       const data: CreateVideoResponse = await response.json();
 
       if (!response.ok || data.error) {
-        setVideoGenerationError(data.details || data.error || "Failed to start video creation job. Please check server logs.");
+        setVideoGenerationError(data.details || data.error || "Failed to start video creation job.");
       } else if (data.video_id) {
-        // Fetch jobs effect will update the list
-        setGeneratedVideoUrl(null);
-        setVideoGenerationError(null);
-        // Optionally add the pending job immediately for faster UI update
-        const newJob: VideoJob = {
-            id: data.video_id,
-            status: 'pending',
-            createdAt: new Date(),
-            videoUrl: null,
-            errorMessage: null,
-            user_id: selectedUserId, // Ensure user_id is included if needed by VideoJob type
-        };
-        setVideoJobs(prevJobs => [newJob, ...prevJobs]);
+        // Fetch jobs immediately to show pending job
+        const supabase = createClient();
+        const { data: newJobData } = await supabase
+          .from('video_records')
+          .select('*')
+          .eq('id', data.video_id)
+          .single();
+          
+        if (newJobData) {
+          const newJob: VideoJob = {
+            ...newJobData,
+            id: newJobData.id,
+            status: newJobData.status,
+            createdAt: new Date(newJobData.created_at),
+            updatedAt: newJobData.updated_at ? new Date(newJobData.updated_at) : undefined,
+            videoUrl: newJobData.final_video_url,
+            errorMessage: newJobData.error_message,
+            user_id: newJobData.user_id,
+          };
+          
+          // Add new job to the beginning of the list
+          setVideoJobs(prevJobs => [newJob, ...prevJobs]);
+        }
+        
+        setVideoGenerationError(null); // Clear previous errors
       } else {
-          setVideoGenerationError("Video creation started but failed to get job ID.");
+        setVideoGenerationError("Video creation started but failed to get job ID.");
       }
     } catch (err: any) { 
       setVideoGenerationError(err.message || "An unexpected error occurred during video creation initiation.");
@@ -297,8 +333,10 @@ const GeneratorsPage = () => {
               isGeneratingAudio={isGeneratingAudio}
               audioGenerationError={audioGenerationError}
               onAudioGenerated={handleAudioGenerated}
+              onSubtitlesGenerated={handleSubtitlesGenerated}
               setIsGeneratingAudio={setIsGeneratingAudio}
               setAudioGenerationError={setAudioGenerationError}
+              selectedUserId={selectedUserId}
             />
           </TabsContent>
           

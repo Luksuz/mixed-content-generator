@@ -1,6 +1,7 @@
 export interface CreateVideoRequestBody {
     imageUrls: string[];
     audioUrl?: string;
+    subtitlesUrl?: string; // URL to SRT file for video subtitles
     userId?: string;
   }
   
