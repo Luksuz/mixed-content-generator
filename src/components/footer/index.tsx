@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 const Footer = () => {
   return (
@@ -26,6 +27,11 @@ const Footer = () => {
               {Logo}
             </a>
           ))}
+        </div>
+        
+        <div className="mt-4 text-xs text-gray-500 flex gap-4">
+          <Link href="/terms" className="hover:underline">Terms of Service</Link>
+          <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
         </div>
       </div>
     </footer>
