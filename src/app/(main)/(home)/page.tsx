@@ -144,9 +144,18 @@ const GeneratorsPage = () => {
   // Moved image generation logic to GeneratorsPage
   const handleStartImageGeneration = async (provider: ImageProvider, numberOfImagesPerPrompt: number, manualSinglePrompt?: string) => {
     // Determine which prompts to use
-    const promptsForGeneration = (imagePrompts && imagePrompts.length > 0)
-      ? imagePrompts
-      : (manualSinglePrompt ? [manualSinglePrompt] : []);
+    let promptsForGeneration: string[] = [];
+    
+    if (manualSinglePrompt) {
+      // Check if we have a combined prompt with our separator
+      if (manualSinglePrompt.includes('|||||')) {
+        promptsForGeneration = manualSinglePrompt.split('|||||');
+      } else {
+        promptsForGeneration = [manualSinglePrompt];
+      }
+    } else if (imagePrompts && imagePrompts.length > 0) {
+      promptsForGeneration = imagePrompts;
+    }
 
     if (promptsForGeneration.length === 0) {
       setImageGenerationError('No prompts available to generate images. Please use the script generator or enter a description.');
@@ -156,7 +165,7 @@ const GeneratorsPage = () => {
     setIsGeneratingImages(true);
     setImageGenerationError(null);
     setGeneratedImageSetsList([]); 
-    setCurrentImageGeneratingInfo(`Generating images for ${promptsForGeneration.length} prompts using batched processing...`);
+    setCurrentImageGeneratingInfo(`Generating ${numberOfImagesPerPrompt} image${numberOfImagesPerPrompt > 1 ? 's' : ''} for ${promptsForGeneration.length} prompt${promptsForGeneration.length > 1 ? 's' : ''}...`);
     
     try {
       // Use the new batch processing endpoint with rate limiting
@@ -167,7 +176,8 @@ const GeneratorsPage = () => {
           provider,
           prompts: promptsForGeneration,
           minimaxAspectRatio: "16:9",
-          userId: actualUserId || 'unknown_user'
+          userId: actualUserId || 'unknown_user',
+          numberOfImagesPerPrompt
         }),
       });
 
@@ -425,6 +435,7 @@ const GeneratorsPage = () => {
           <TabsContent value="image" className="mt-0">
             <ImageGenerator 
               scriptPrompts={imagePrompts}
+              scriptSections={sharedScriptSections}
               numberOfImagesPerPrompt={defaultNumberOfImagesPerSectionPrompt}
               isLoadingImages={isGeneratingImages}
               imageSets={generatedImageSetsList}

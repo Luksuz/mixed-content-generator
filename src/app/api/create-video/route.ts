@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     // Create multiple clips for zoom in/out effect since Shotstack doesn't have a direct "zoomInOut" effect
     // We'll create alternating zoom in and zoom out clips with faster cycles
     const zoomClips = [];
-    const zoomDuration = 5; // Each zoom cycle lasts 5 seconds (instead of 10)
+    const zoomDuration = 20; // Each zoom cycle lasts 10 seconds
     const numZoomCycles = Math.ceil(secondPartDuration / (zoomDuration * 2));
     
     for (let i = 0; i < numZoomCycles; i++) {

@@ -60,7 +60,7 @@ The following words should be completely avoided in your script: ${wordsList.joi
         console.log(`Started processing section ${index + 1}: ${section.title}`);
         
         // Create a prompt for this section
-      const sectionPrompt = `
+        const sectionPrompt = `
 You are a professional writer creating a section of a script based on the following outline:
 
 TITLE: ${title}
@@ -84,23 +84,23 @@ Format the spoken text using Markdown where appropriate for emphasis or stylisti
 Maintain a word count of approximately 500-800 words for this section, consisting purely of speakable text.
 `;
 
-      // Generate content for this section
-      const response = await model.invoke(sectionPrompt);
+        // Generate content for this section
+        const response = await model.invoke(sectionPrompt);
         
         // Carefully extract content ensuring it's valid text
-      let sectionContent = "";
+        let sectionContent = "";
       
-      if (typeof response.content === 'string') {
-        sectionContent = response.content;
-      } else if (Array.isArray(response.content)) {
-        sectionContent = response.content
-          .map(item => {
-            if (typeof item === 'string') return item;
-              if (item && typeof item === 'object' && 'text' in item) return item.text;
-            return '';
-          })
-          .join('\n');
-      }
+        if (typeof response.content === 'string') {
+          sectionContent = response.content;
+        } else if (Array.isArray(response.content)) {
+          sectionContent = response.content
+            .map(item => {
+              if (typeof item === 'string') return item;
+                if (item && typeof item === 'object' && 'text' in item) return item.text;
+              return '';
+            })
+            .join('\n');
+        }
 
         // Validate we actually got content
         if (!sectionContent || sectionContent.trim() === '') {
@@ -122,12 +122,12 @@ Maintain a word count of approximately 500-800 words for this section, consistin
         console.error(`Error processing section ${index + 1}:`, sectionError);
         
         // Return a placeholder for the failed section
-      return {
-        index,
-        title: section.title,
+        return {
+          index,
+          title: section.title,
           content: `[An error occurred while generating content for "${section.title}". Please try again.]`,
           success: false
-      };
+        };
       }
     };
 

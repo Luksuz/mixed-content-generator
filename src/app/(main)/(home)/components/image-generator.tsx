@@ -3,15 +3,19 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Download, RefreshCw } from "lucide-react";
-import React, { useState } from "react";
+import { Image as ImageIcon, Download, RefreshCw, Plus, Check, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
 import { ImageProvider, GeneratedImageSet } from '@/types/image-generation';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScriptSection } from "@/types";
+import { Slider } from "@/components/ui/slider";
 
 // Updated props for the controlled component
 interface ImageGeneratorProps {
   scriptPrompts?: string[]; 
+  scriptSections?: ScriptSection[];
   numberOfImagesPerPrompt?: number; 
   
   isLoadingImages: boolean;
@@ -24,6 +28,7 @@ interface ImageGeneratorProps {
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   scriptPrompts,
+  scriptSections = [],
   numberOfImagesPerPrompt = 1, // Default if not specified by parent
   isLoadingImages,
   imageSets,
@@ -37,20 +42,62 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   
   // New state for tracking selected images for regeneration
   const [selectedImages, setSelectedImages] = useState<{ setIndex: number; imageIndex: number; prompt: string }[]>([]);
+  
+  // New state for image options
+  const [selectedSections, setSelectedSections] = useState<number[]>([]);
+  const [customPrompts, setCustomPrompts] = useState<string[]>([]);
+  const [newCustomPrompt, setNewCustomPrompt] = useState("");
+  const [numImagesPerPrompt, setNumImagesPerPrompt] = useState(numberOfImagesPerPrompt);
+  
+  // Update the default number of images when the prop changes
+  useEffect(() => {
+    setNumImagesPerPrompt(numberOfImagesPerPrompt);
+  }, [numberOfImagesPerPrompt]);
+  
+  // Get selected prompts
+  const getSelectedPrompts = () => {
+    const sectionPrompts = selectedSections
+      .map(index => scriptSections[index]?.image_generation_prompt)
+      .filter(Boolean) as string[];
+    
+    return [...sectionPrompts, ...customPrompts];
+  }
 
   const handleGenerateClick = () => {
-    // Determine if we use script prompts or the manual one
-    const useScriptPrompts = scriptPrompts && scriptPrompts.length > 0;
+    // Get all selected prompts (from sections and custom)
+    const selectedPrompts = getSelectedPrompts();
     
-    if (useScriptPrompts) {
-      onStartGenerationRequest(selectedProvider, numberOfImagesPerPrompt); // Parent uses its own scriptPrompts
-    } else if (manualPrompt.trim() !== "") {
-      onStartGenerationRequest(selectedProvider, numberOfImagesPerPrompt, manualPrompt.trim());
-    } else {
-      // Optionally, set a local error if no prompt is available
+    // If we have selected prompts, use those
+    if (selectedPrompts.length > 0) {
+      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, selectedPrompts.join('|||||'));
+    } 
+    // Otherwise, use the manual prompt if available
+    else if (manualPrompt.trim() !== "") {
+      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, manualPrompt.trim());
+    } 
+    // No prompts available
+    else {
       console.error("No prompt provided for image generation.");
     }
   };
+  
+  const toggleSectionSelection = (index: number) => {
+    setSelectedSections(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  }
+  
+  const addCustomPrompt = () => {
+    if (!newCustomPrompt.trim()) return;
+    setCustomPrompts(prev => [...prev, newCustomPrompt.trim()]);
+    setNewCustomPrompt("");
+  }
+  
+  const removeCustomPrompt = (index: number) => {
+    setCustomPrompts(prev => prev.filter((_, i) => i !== index));
+  }
   
   const downloadImage = (url: string, filename: string) => {
     fetch(url)
@@ -107,9 +154,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     setSelectedImages([]);
   };
 
-  const promptsAvailable = (scriptPrompts && scriptPrompts.length > 0) || manualPrompt.trim() !== '';
-  const displayPromptCount = scriptPrompts && scriptPrompts.length > 0 ? scriptPrompts.length : (manualPrompt.trim() !== '' ? 1 : 0);
-
+  // Determine if we have prompts available
+  const promptsAvailable = selectedSections.length > 0 || customPrompts.length > 0 || manualPrompt.trim() !== '';
+  
+  // Count of prompts to be used
+  const selectedPromptCount = selectedSections.length + customPrompts.length;
+  const displayPromptCount = selectedPromptCount > 0 ? selectedPromptCount : (manualPrompt.trim() !== '' ? 1 : 0);
 
   return (
     <div className="space-y-8">
@@ -118,28 +168,119 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         <div className="space-y-2">
           <h2 className="text-2xl font-bold">AI Image Generator</h2>
           <p className="text-muted-foreground">
-            {scriptPrompts && scriptPrompts.length > 0 
-              ? `Using ${scriptPrompts.length} prompts from script. Or, describe a single image below.`
+            {scriptSections && scriptSections.length > 0 
+              ? `Select script sections to use their image prompts, or create custom prompts.`
               : "Describe the image you want to see, or generate a script first."}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-          {/* Show manual prompt input if no script prompts or always show as an option */}
-          {/* For now, only show if scriptPrompts are not primary */}
-          {!(scriptPrompts && scriptPrompts.length > 0) && (
-          <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="manual-prompt">Image Description</Label>
+        {/* Script Section Selection */}
+        {scriptSections && scriptSections.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <Label>Script Sections</Label>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSelectedSections([])}
+                  disabled={selectedSections.length === 0}
+                >
+                  Clear
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSelectedSections(Array.from({length: scriptSections.length}, (_, i) => i))}
+                  disabled={selectedSections.length === scriptSections.length}
+                >
+                  Select All
+                </Button>
+              </div>
+            </div>
+            
+            <ScrollArea className="h-52 border rounded-md p-4">
+              <div className="space-y-2">
+                {scriptSections.map((section, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Checkbox 
+                      id={`section-${index}`} 
+                      checked={selectedSections.includes(index)}
+                      onCheckedChange={() => toggleSectionSelection(index)}
+                    />
+                    <Label 
+                      htmlFor={`section-${index}`} 
+                      className="flex-grow cursor-pointer text-sm"
+                    >
+                      <div className="font-medium">{section.title}</div>
+                      <div className="text-muted-foreground truncate">{section.image_generation_prompt}</div>
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        ) : null}
+        
+        {/* Custom Prompts */}
+        <div className="space-y-4">
+          <Label>Custom Prompts</Label>
+          
+          <div className="flex gap-2">
             <Input
-                id="manual-prompt"
-              placeholder="Describe the image you want to generate..."
-                value={manualPrompt}
-                onChange={(e) => setManualPrompt(e.target.value)}
-                disabled={isLoadingImages}
+              placeholder="Add a custom image prompt..."
+              value={newCustomPrompt}
+              onChange={(e) => setNewCustomPrompt(e.target.value)}
+              disabled={isLoadingImages}
+              className="flex-grow"
+            />
+            <Button 
+              variant="outline"
+              onClick={addCustomPrompt}
+              disabled={isLoadingImages || !newCustomPrompt.trim()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {customPrompts.length > 0 && (
+            <div className="space-y-2">
+              {customPrompts.map((prompt, index) => (
+                <div key={index} className="flex items-center gap-2 border rounded-md p-2">
+                  <div className="flex-grow text-sm">{prompt}</div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0" 
+                    onClick={() => removeCustomPrompt(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <div className="text-xs text-muted-foreground">
+                {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Manual Prompt - show only if no sections or custom prompts */}
+        {selectedSections.length === 0 && customPrompts.length === 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="manual-prompt">Image Description</Label>
+            <Input
+              id="manual-prompt"
+              placeholder="Describe a single image you want to generate..."
+              value={manualPrompt}
+              onChange={(e) => setManualPrompt(e.target.value)}
+              disabled={isLoadingImages}
             />
           </div>
-          )}
+        )}
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          {/* Provider Selection */}
           <div className="space-y-2">
             <Label htmlFor="provider-select">Provider</Label>
             <select
@@ -154,24 +295,38 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             </select>
           </div>
 
-          {/* Minimax Aspect Ratio - example, can be expanded */}
+          {/* Number of Images Per Prompt */}
+          <div className="space-y-2">
+            <Label htmlFor="images-per-prompt">Images per Prompt: {numImagesPerPrompt}</Label>
+            <Slider
+              id="images-per-prompt"
+              min={1}
+              max={5}
+              step={1}
+              value={[numImagesPerPrompt]}
+              onValueChange={(value: number[]) => setNumImagesPerPrompt(value[0])}
+              disabled={isLoadingImages}
+              aria-label="Number of images per prompt"
+            />
+          </div>
+
+          {/* Minimax Aspect Ratio */}
           {selectedProvider === 'minimax' && (
             <div className="space-y-2">
-                <Label htmlFor="minimax-aspect-ratio">Aspect Ratio (Minimax)</Label>
-                <select 
-                  id="minimax-aspect-ratio"
-                  // value={minimaxAspectRatioState} // Needs state if configurable
-                  // onChange={(e) => setMinimaxAspectRatioState(e.target.value as any)}
-                  disabled={isLoadingImages}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                  defaultValue="16:9"
-                >
-                  <option value="16:9">16:9 (Landscape)</option>
-                </select>
+              <Label htmlFor="minimax-aspect-ratio">Aspect Ratio (Minimax)</Label>
+              <select 
+                id="minimax-aspect-ratio"
+                disabled={isLoadingImages}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                defaultValue="16:9"
+              >
+                <option value="16:9">16:9 (Landscape)</option>
+              </select>
             </div>
-           )}
-
-          <div className={`md:col-span-2 ${!(scriptPrompts && scriptPrompts.length > 0) ? 'md:col-span-1' : 'md:col-span-2'} flex items-end`}>
+          )}
+          
+          {/* Generate Button */}
+          <div className={`md:col-span-${selectedProvider === 'minimax' ? '1' : '2'}`}>
             <Button 
               className="w-full flex items-center justify-center gap-2" 
               onClick={handleGenerateClick}
@@ -182,10 +337,32 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   <span>{generatingInfo || "Generating..."}</span>
                 </>
-              ) : `Generate Image${displayPromptCount > 1 ? 's' : ''} (${displayPromptCount} prompt${displayPromptCount > 1 ? 's' : ''})`}
+              ) : `Generate ${numImagesPerPrompt > 1 ? numImagesPerPrompt : ''} Image${numImagesPerPrompt > 1 ? 's' : ''} (${displayPromptCount} prompt${displayPromptCount > 1 ? 's' : ''})`}
             </Button>
           </div>
         </div>
+        
+        {/* Summary Badge */}
+        {(selectedSections.length > 0 || customPrompts.length > 0) && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedSections.length > 0 && (
+              <Badge variant="secondary">
+                {selectedSections.length} script section{selectedSections.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+            {customPrompts.length > 0 && (
+              <Badge variant="secondary">
+                {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Badge variant="secondary">
+              {numImagesPerPrompt} image{numImagesPerPrompt !== 1 ? 's' : ''} per prompt
+            </Badge>
+            <div className="text-xs text-muted-foreground ml-2">
+              {displayPromptCount * numImagesPerPrompt} total images will be generated
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Regeneration Controls - new section that only appears when images are selected */}
@@ -287,7 +464,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
                             disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
                           >
-                            <RefreshCw size={16} className="mr-2" />
+                            {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
                             {isSelected ? "Selected" : "Select"}
                           </Button>
                         </div>
@@ -330,7 +507,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
                             disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
                           >
-                            <RefreshCw size={16} className="mr-2" />
+                            {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
                             {isSelected ? "Selected" : "Select"}
                           </Button>
                         </div>

@@ -10,6 +10,7 @@ interface MultiImageRequestBody {
   prompts: string[];
   minimaxAspectRatio?: "16:9" | "1:1" | "9:16";
   userId?: string;
+  numberOfImagesPerPrompt?: number;
 }
 
 interface MultiImageResponse {
@@ -86,10 +87,11 @@ export async function POST(request: NextRequest) {
       provider,
       prompts,
       minimaxAspectRatio = "16:9",
-      userId = "unknown_user"
+      userId = "unknown_user",
+      numberOfImagesPerPrompt = 1
     } = body;
 
-    console.log(`🖼️ Received multi-image generation request: provider=${provider}, userId=${userId}, prompts=${prompts.length}`);
+    console.log(`🖼️ Received multi-image generation request: provider=${provider}, userId=${userId}, prompts=${prompts.length}, images per prompt=${numberOfImagesPerPrompt}`);
 
     if (!prompts || !Array.isArray(prompts) || prompts.length === 0) {
       return NextResponse.json({ error: 'At least one prompt is required' }, { status: 400 });
@@ -97,6 +99,11 @@ export async function POST(request: NextRequest) {
 
     if (provider !== 'openai' && provider !== 'minimax') {
       return NextResponse.json({ error: 'Invalid provider specified' }, { status: 400 });
+    }
+
+    // Validate number of images
+    if (numberOfImagesPerPrompt < 1 || numberOfImagesPerPrompt > 5) {
+      return NextResponse.json({ error: 'Number of images per prompt must be between 1 and 5' }, { status: 400 });
     }
 
     // API key checks
@@ -114,104 +121,114 @@ export async function POST(request: NextRequest) {
     
     // --- OpenAI Logic ---
     if (provider === 'openai') {
-      // Create image generation functions for each prompt
-      prompts.forEach((prompt, index) => {
-        generateImageFunctions.push(async () => {
-          try {
-            const response = await openai.images.generate({
-              model: "gpt-image-1",
-              prompt: prompt,
-              n: 1,
-              size: "1536x1024",
-            });
-
-            if (response.data?.[0]?.b64_json) {
-              const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
-              const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
-              const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+      // Create image generation functions for each prompt, repeated by numberOfImagesPerPrompt
+      prompts.forEach((prompt, promptIndex) => {
+        // Generate multiple images for each prompt
+        for (let imageIndex = 0; imageIndex < numberOfImagesPerPrompt; imageIndex++) {
+          generateImageFunctions.push(async () => {
+            try {
+              console.log(`Generating OpenAI image ${imageIndex + 1}/${numberOfImagesPerPrompt} for prompt ${promptIndex + 1}`);
               
-              if (!supabaseUrl) {
-                return { url: null, index, prompt, error: 'Failed to upload to Supabase' };
+              const response = await openai.images.generate({
+                model: "gpt-image-1",
+                prompt: prompt,
+                n: 1,
+                size: "1536x1024",
+              });
+
+              if (response.data?.[0]?.b64_json) {
+                const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
+                const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
+                const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                
+                if (!supabaseUrl) {
+                  return { url: null, index: promptIndex, prompt, error: 'Failed to upload to Supabase' };
+                }
+                return { url: supabaseUrl, index: promptIndex, prompt };
+              } else {
+                return { url: null, index: promptIndex, prompt, error: 'No image data in OpenAI response' };
               }
-              return { url: supabaseUrl, index, prompt };
-            } else {
-              return { url: null, index, prompt, error: 'No image data in OpenAI response' };
+            } catch (error: any) {
+              return { url: null, index: promptIndex, prompt, error: error.message || 'Unknown error during OpenAI generation' };
             }
-          } catch (error: any) {
-            return { url: null, index, prompt, error: error.message || 'Unknown error during OpenAI generation' };
-          }
-        });
+          });
+        }
       });
     }
     // --- MiniMax Logic ---
     else if (provider === 'minimax') {
       const minimaxApiUrl = "https://api.minimaxi.chat/v1/image_generation";
       
-      // Create image generation functions for each prompt
-      prompts.forEach((prompt, index) => {
-        generateImageFunctions.push(async () => {
-          try {
-            const payload = {
-              model: "image-01",
-              prompt: prompt,
-              aspect_ratio: minimaxAspectRatio,
-              response_format: "base64",
-              width: 1536,
-              height: 1024,
-              n: 1,
-              prompt_optimizer: true,
-            };
-            
-            const headers = {
-              'Authorization': `Bearer ${MINIMAX_API_KEY}`,
-              'Content-Type': 'application/json',
-            };
-
-            const minimaxResponse = await fetch(minimaxApiUrl, { 
-              method: 'POST', 
-              headers: headers, 
-              body: JSON.stringify(payload) 
-            });
-            
-            if (!minimaxResponse.ok) {
-              const errorData = await minimaxResponse.json().catch(() => ({}));
-              console.error('Minimax API error:', minimaxResponse.status, errorData);
-              return { 
-                url: null, 
-                index, 
-                prompt, 
-                error: `Minimax API request failed with status ${minimaxResponse.status}` 
-              };
-            }
-            
-            const data = await minimaxResponse.json();
-
-            if (data.data?.image_base64?.[0]) {
-              const base64String = data.data.image_base64[0];
-              const imageBuffer = Buffer.from(base64String, 'base64');
-              const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
-              const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+      // Create image generation functions for each prompt, repeated by numberOfImagesPerPrompt
+      prompts.forEach((prompt, promptIndex) => {
+        // Generate multiple images for each prompt
+        for (let imageIndex = 0; imageIndex < numberOfImagesPerPrompt; imageIndex++) {
+          generateImageFunctions.push(async () => {
+            try {
+              console.log(`Generating MiniMax image ${imageIndex + 1}/${numberOfImagesPerPrompt} for prompt ${promptIndex + 1}`);
               
-              if (!supabaseUrl) {
-                return { url: null, index, prompt, error: 'Failed to upload to Supabase' };
-              }
-              return { url: supabaseUrl, index, prompt };
-            }
-            
-            if (data.base?.status_code !== 0) {
-              return { 
-                url: null, 
-                index, 
-                prompt, 
-                error: `Minimax API error: ${data.base.status_msg || 'Unknown error'}` 
+              const payload = {
+                model: "image-01",
+                prompt: prompt,
+                aspect_ratio: minimaxAspectRatio,
+                response_format: "base64",
+                width: 1536,
+                height: 1024,
+                n: 1,
+                prompt_optimizer: true,
               };
+              
+              const headers = {
+                'Authorization': `Bearer ${MINIMAX_API_KEY}`,
+                'Content-Type': 'application/json',
+              };
+
+              const minimaxResponse = await fetch(minimaxApiUrl, { 
+                method: 'POST', 
+                headers: headers, 
+                body: JSON.stringify(payload) 
+              });
+              
+              if (!minimaxResponse.ok) {
+                const errorData = await minimaxResponse.json().catch(() => ({}));
+                console.error('Minimax API error:', minimaxResponse.status, errorData);
+                return { 
+                  url: null, 
+                  index: promptIndex, 
+                  prompt, 
+                  error: `Minimax API request failed with status ${minimaxResponse.status}` 
+                };
+              }
+              
+              const data = await minimaxResponse.json();
+
+              if (data.data?.image_base64?.[0]) {
+                const base64String = data.data.image_base64[0];
+                const imageBuffer = Buffer.from(base64String, 'base64');
+                const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
+                const supabaseUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                
+                if (!supabaseUrl) {
+                  return { url: null, index: promptIndex, prompt, error: 'Failed to upload to Supabase' };
+                }
+                return { url: supabaseUrl, index: promptIndex, prompt };
+              }
+              
+              if (data.base?.status_code !== 0) {
+                return { 
+                  url: null, 
+                  index: promptIndex, 
+                  prompt, 
+                  error: `Minimax API error: ${data.base.status_msg || 'Unknown error'}` 
+                };
+              }
+              
+              return { url: null, index: promptIndex, prompt, error: 'Unexpected Minimax response format' };
+            } catch (error: any) {
+              return { url: null, index: promptIndex, prompt, error: error.message || 'Unknown error during Minimax generation' };
             }
-            
-            return { url: null, index, prompt, error: 'Unexpected Minimax response format' };
-          } catch (error: any) {
-            return { url: null, index, prompt, error: error.message || 'Unknown error during Minimax generation' };
-          }
-        });
+          });
+        }
       });
     }
 
