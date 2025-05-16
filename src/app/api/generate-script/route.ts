@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       forbiddenWords 
     } = await request.json();
     
-    if (!title || !wordCount || !theme) {
+    if (!title || !wordCount) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     You are a professional script outline generator. Create a detailed script outline for a story with the following details:
 
     Title: ${title}
-    Theme: ${theme}
+    Theme: ${theme || "No specific theme provided"}
     Word Count: Approximately ${wordCount} words (this is the target for the story itself, CTAs will add to it)
     ${additionalInstructions}
 

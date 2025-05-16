@@ -1,11 +1,22 @@
+import { User as SupabaseUser } from '@supabase/supabase-js';
+
+// Basic user interface, extends from Supabase if needed
 export interface User {
-    id: string;
-    name: string;
-  }
+  id: string;
+  email?: string;
+  name?: string;
+}
+
+// Convert Supabase user to our user interface
+export function mapSupabaseUser(supabaseUser: SupabaseUser | null): User | null {
+  if (!supabaseUser) return null;
   
-  export const predefinedUsers: User[] = [
-    { id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', name: 'Alice' },
-    { id: 'a1b2c3d4-e5f6-7890-1234-567890abcdef', name: 'Bob' },
-    { id: 'abcdef12-3456-7890-fedc-ba9876543210', name: 'Charlie' },
-    // Add more users as needed
-  ]; 
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email || undefined,
+    name: supabaseUser.user_metadata?.name || supabaseUser.email?.split('@')[0] || 'User'
+  };
+}
+
+// Empty array of predefined users - we'll use authenticated users instead
+export const predefinedUsers: User[] = []; 

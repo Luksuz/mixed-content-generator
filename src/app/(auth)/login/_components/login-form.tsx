@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { InputForm } from "@/components/ui/input/input-form";
-import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -26,8 +26,7 @@ const defaultValues: LoginValuesType = {
 
 const LoginForm = () => {
   const router = useRouter();
-
-  const supabase = createClient();
+  const { signIn } = useAuth();
 
   const form = useForm<LoginValuesType>({
     resolver: zodResolver(loginFormSchema),
@@ -35,13 +34,18 @@ const LoginForm = () => {
   });
 
   async function handleLogin(values: LoginValuesType) {
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { email, password } = values;
+    const { error, success } = await signIn(email, password);
 
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error);
+      return;
+    }
 
-    toast.success("Login successful");
-
-    router.refresh();
+    if (success) {
+      toast.success("Login successful");
+      router.push("/");
+    }
   }
 
   return (
@@ -53,7 +57,7 @@ const LoginForm = () => {
         <InputForm
           label="Email"
           name="email"
-          placeholder="hello@sarathadhi.com"
+          placeholder="hello@example.com"
           description=""
           required
         />
@@ -66,7 +70,9 @@ const LoginForm = () => {
           required
         />
 
-        <Button>Login</Button>
+        <Button disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? "Logging in..." : "Login"}
+        </Button>
       </form>
     </Form>
   );

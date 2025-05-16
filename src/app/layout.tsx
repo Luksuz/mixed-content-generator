@@ -6,6 +6,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 import "./globals.css";
 
@@ -89,7 +90,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
-            {children}
+            <AuthProvider>
+              {children}
+            </AuthProvider>
           </SessionProvider>
           <Toaster position="top-center" reverseOrder={false} />
         </ThemeProvider>

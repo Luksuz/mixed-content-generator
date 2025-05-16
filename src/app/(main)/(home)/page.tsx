@@ -21,20 +21,17 @@ import { createClient } from "@/utils/supabase/client";
 import Navbar from "@/components/navbar";
 import { predefinedUsers } from "@/types/users";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 
 const GeneratorsPage = () => {
   const [activeTab, setActiveTab] = useState("script");
   
   // User Selection State
-  const [selectedUserId, setSelectedUserId] = useState<string>(
-    predefinedUsers.length > 0 ? predefinedUsers[0].id : '' // Default to first user
-  );
-
-  const handleUserChange = (userId: string) => {
-    setSelectedUserId(userId);
-    console.log("GeneratorsPage - Selected User ID:", userId);
-    // Potentially refetch user-specific data here if needed
-  };
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const { user, mappedUser } = useAuth();
+  
+  // Real user ID from authentication (if available)
+  const actualUserId = user?.id || "";
 
   // Script Generator State
   const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>([]);
@@ -65,16 +62,15 @@ const GeneratorsPage = () => {
   // Fetch existing jobs on component mount
   useEffect(() => {
     const fetchJobs = async () => {
-      if (!selectedUserId) return; // Don't fetch if no user selected
+      if (!actualUserId) return; // Don't fetch if no user selected
 
-      console.log(`🔄 Polling: Fetching video jobs for user ${selectedUserId}`);
       setIsLoadingJobs(true);
       const supabase = createClient();
       
       const { data, error } = await supabase
         .from('video_records')
         .select('*')
-        .eq('user_id', selectedUserId) // Filter by selected user
+        .eq('user_id', actualUserId) // Filter by actual user ID
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -89,7 +85,7 @@ const GeneratorsPage = () => {
             videoUrl: job.final_video_url
         }));
         setVideoJobs(fetchedJobs);
-        console.log(`✅ Polling: Successfully fetched ${fetchedJobs.length} video jobs for user ${selectedUserId}`);
+        console.log(`Fetched ${fetchedJobs.length} video jobs for user ${actualUserId}`);
         setVideoGenerationError(null); // Clear previous errors
       }
       setIsLoadingJobs(false);
@@ -116,7 +112,7 @@ const GeneratorsPage = () => {
         clearInterval(pollingInterval);
       }
     };
-  }, [selectedUserId, activeTab]); // Include activeTab in dependencies
+  }, [actualUserId, activeTab]); // Use actualUserId in dependencies
 
   const handleScriptSectionsUpdate = (sections: ScriptSection[]) => {
     setSharedScriptSections(sections);
@@ -171,7 +167,7 @@ const GeneratorsPage = () => {
           provider,
           prompts: promptsForGeneration,
           minimaxAspectRatio: "16:9",
-          userId: selectedUserId || 'unknown_user'
+          userId: actualUserId || 'unknown_user'
         }),
       });
 
@@ -236,7 +232,7 @@ const GeneratorsPage = () => {
           provider,
           prompts,
           minimaxAspectRatio: "16:9",
-          userId: selectedUserId || 'unknown_user'
+          userId: actualUserId || 'unknown_user'
         }),
       });
       
@@ -280,7 +276,7 @@ const GeneratorsPage = () => {
   };
 
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
-    if (!selectedUserId) { // Check if a user is selected
+    if (!actualUserId) { // Check if a user is selected
       setVideoGenerationError("Please select a user before creating a video.");
       return;
     }
@@ -307,7 +303,7 @@ const GeneratorsPage = () => {
         imageUrls: selectedImageUrls,
         audioUrl: generatedAudioUrl,
         subtitlesUrl: generatedSubtitlesUrl || undefined,
-        userId: selectedUserId,
+        userId: actualUserId,
       };
       
       console.log(`Creating video with ${selectedImageUrls.length} images, audio, and ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}.`);
@@ -356,6 +352,12 @@ const GeneratorsPage = () => {
     } finally {
       setIsGeneratingVideo(false);
     }
+  };
+
+  // We don't need the handleUserChange function anymore since we're using the actual user ID
+  // Just keep it as a stub for now to avoid breaking changes
+  const handleUserChange = (userId: string) => {
+    console.log("User selection is deprecated - using authenticated user ID instead");
   };
 
   return (
@@ -416,7 +418,7 @@ const GeneratorsPage = () => {
               onSubtitlesGenerated={handleSubtitlesGenerated}
               setIsGeneratingAudio={setIsGeneratingAudio}
               setAudioGenerationError={setAudioGenerationError}
-              selectedUserId={selectedUserId}
+              selectedUserId={actualUserId}
             />
           </TabsContent>
           

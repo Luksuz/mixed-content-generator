@@ -390,10 +390,10 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const handleDirectRegeneration = async (segmentIndex: number, segmentContent: string) => {
     console.log(`🔄 Initiating direct regeneration for segment ${segmentIndex + 1}`);
     
-    // Verify title and theme are available
-    if (!title || !theme) {
-      console.error(`❌ Cannot regenerate script segment - missing title or theme`);
-      alert("Please enter a title and theme before regenerating script segments.");
+    // Verify title is available
+    if (!title) {
+      console.error(`❌ Cannot regenerate script segment - missing title`);
+      alert("Please enter a title before regenerating script segments.");
       return;
     }
     
@@ -462,14 +462,12 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             <div className="space-y-2">
               <Label htmlFor="theme" className="flex justify-between">
                 <span>Story Theme</span>
-                {!theme && <span className="text-red-500 text-xs">Required for regeneration</span>}
               </Label>
               <Input
                 id="theme"
                 placeholder="E.g., Mystery, Romance, Sci-Fi"
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
-                className={!theme ? "border-red-300 focus-visible:ring-red-500" : ""}
               />
             </div>
           </div>
@@ -489,7 +487,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             <Button 
               className="flex-1" 
               onClick={handleGenerateOutline}
-              disabled={isLoading || isGeneratingScript || !title || !theme}
+              disabled={isLoading || isGeneratingScript || !title}
             >
               {isLoading ? "Generating..." : "Generate Outline"}
             </Button>

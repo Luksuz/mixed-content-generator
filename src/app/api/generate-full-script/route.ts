@@ -12,12 +12,12 @@ export async function POST(request: Request) {
     
     console.log("Received request for script generation:");
     console.log("- Title:", title);
-    console.log("- Theme:", theme);
+    console.log("- Theme:", theme || "Not provided");
     console.log("- Sections:", Array.isArray(sections) ? `${sections.length} sections` : "None");
     console.log("- Additional Prompt:", additionalPrompt ? "Provided" : "None");
     console.log("- Forbidden Words:", forbiddenWords ? "Provided" : "None");
     
-    if (!title || !theme || !sections || !Array.isArray(sections) || sections.length === 0) {
+    if (!title || !sections || !Array.isArray(sections) || sections.length === 0) {
       console.log("Missing or invalid required fields");
       return NextResponse.json(
         { error: "Missing or invalid required fields" },
@@ -64,7 +64,7 @@ The following words should be completely avoided in your script: ${wordsList.joi
 You are a professional writer creating a section of a script based on the following outline:
 
 TITLE: ${title}
-THEME: ${theme}
+THEME: ${theme || "No specific theme provided"}
 SECTION ${index + 1} TITLE: ${section.title}
 WRITING INSTRUCTIONS: ${section.writingInstructions}
 ${additionalInstructions}

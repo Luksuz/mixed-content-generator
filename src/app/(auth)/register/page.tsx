@@ -21,7 +21,7 @@ const RegisterPage = () => {
           </h1>
 
           <p className="text-sm text-muted-foreground">
-            Enter your email and password to create your account
+            Enter your details to create an account
           </p>
         </div>
 
@@ -32,7 +32,7 @@ const RegisterPage = () => {
             href="/login"
             className="hover:text-brand underline underline-offset-4"
           >
-            Already have an account? Login
+            Already have an account? Sign in
           </Link>
         </p>
       </div>

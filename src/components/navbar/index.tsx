@@ -4,20 +4,16 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ModeToggle } from "./mode-toggle";
 import { UserSelector } from '../user-selector';
-// Removed predefinedUsers import, as initial state is handled above
-
-// Keep server-side imports for potential future use or refactor
-// import { signOut } from "@/app/actions";
-// import {
-//   DropdownMenu,
-//   DropdownMenuContent,
-//   DropdownMenuItem,
-//   DropdownMenuLabel,
-//   DropdownMenuSeparator,
-//   DropdownMenuTrigger,
-// } from "@/components/ui/dropdown-menu";
-// import { createClient } from "@/utils/supabase/server";
-import { Lock, User as UserIcon } from "lucide-react"; // Renamed User icon to avoid conflict
+import { useAuth } from "@/contexts/AuthContext";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Lock, User as UserIcon, LogOut } from "lucide-react";
 
 // Define props for Navbar
 interface NavbarProps {
@@ -25,20 +21,8 @@ interface NavbarProps {
   onUserChange: (userId: string) => void;
 }
 
-// Mock user data for client-side rendering
-// In a real app, you'd fetch this or use a client-side auth hook
-const mockUser = null; // Or { email: 'test@example.com' }
-
-const Navbar = ({ selectedUserId, onUserChange }: NavbarProps) => { // Destructure props
-  // Remove local state and handler
-  // const [selectedUserId, setSelectedUserId] = useState<string>(...);
-  // const handleUserChange = (userId: string) => { ... };
-
-  const user = mockUser;
-  // const supabase = createClient(); // Cannot use server client here
-  // const {
-  //   data: { user },
-  // } = await supabase.auth.getUser(); // Cannot use await here
+const Navbar = ({ selectedUserId, onUserChange }: NavbarProps) => {
+  const { user, signOut, isLoading } = useAuth();
 
   return (
     <header className="w-full border-b">
@@ -48,16 +32,44 @@ const Navbar = ({ selectedUserId, onUserChange }: NavbarProps) => { // Destructu
           <h5 className="mt-0.5 font-semibold text-lg">AI Content Gen</h5>
         </Link>
 
-        <div className="flex items-center gap-4"> {/* Increased gap */} 
-          {/* User Selector */} 
-          <UserSelector 
-            selectedUserId={selectedUserId} 
-            onUserChange={onUserChange} 
-          />
+        <div className="flex items-center gap-4">
+          {user ? (
+            <>
+              {/* User dropdown menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="rounded-full">
+                    <UserIcon className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>
+                    {user.email || "User"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              {/* If user is not authenticated, show login/register buttons */}
+              {!isLoading && (
+                <>
+                  <Button variant="outline" asChild>
+                    <Link href="/login">Log in</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/register">Sign up</Link>
+                  </Button>
+                </>
+              )}
+            </>
+          )}
 
-          {/* Existing Auth Buttons/Mode Toggle */} 
-          {/* Commenting out auth part for now as it needs client-side handling */} 
-          {/* {user ? ( ... ) : ( ... ) } */} 
           <ModeToggle />
         </div>
       </div>

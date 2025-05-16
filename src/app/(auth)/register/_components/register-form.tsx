@@ -10,23 +10,31 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { z } from "zod";
 
-export const registerFormSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, {
-    message: "Password must be at least 8 characters.",
-  }),
-});
+export const registerFormSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(6, {
+      message: "Password must be at least 6 characters.",
+    }),
+    confirmPassword: z.string().min(6, {
+      message: "Password must be at least 6 characters.",
+    }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
 
 type RegisterValuesType = z.infer<typeof registerFormSchema>;
 
 const defaultValues: RegisterValuesType = {
   email: "",
   password: "",
+  confirmPassword: "",
 };
 
 const RegisterForm = () => {
   const router = useRouter();
-
   const supabase = createClient();
 
   const form = useForm<RegisterValuesType>({
@@ -35,20 +43,27 @@ const RegisterForm = () => {
   });
 
   async function handleRegister(values: RegisterValuesType) {
-    const { error, data } = await supabase.auth.signUp({
-      ...values,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback`,
-      },
-    });
+    const { email, password } = values;
+    
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-    if (error) return toast.error(error.message);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
 
-    console.log({ data });
-
-    toast.success("Verification email sent. Check your mail.");
-
-    router.replace("/email-verify");
+      toast.success("Registration successful! Please check your email for verification.");
+      router.push("/login");
+    } catch (error: any) {
+      toast.error(error.message || "Registration failed");
+    }
   }
 
   return (
@@ -60,7 +75,7 @@ const RegisterForm = () => {
         <InputForm
           label="Email"
           name="email"
-          placeholder="hello@sarathadhi.com"
+          placeholder="hello@example.com"
           description=""
           required
         />
@@ -73,7 +88,17 @@ const RegisterForm = () => {
           required
         />
 
-        <Button>Register</Button>
+        <InputForm
+          type="password"
+          label="Confirm Password"
+          name="confirmPassword"
+          description=""
+          required
+        />
+
+        <Button disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? "Creating account..." : "Register"}
+        </Button>
       </form>
     </Form>
   );
