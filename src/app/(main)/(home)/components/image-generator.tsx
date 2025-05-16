@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Download } from "lucide-react";
+import { Image as ImageIcon, Download, RefreshCw } from "lucide-react";
 import React, { useState } from "react";
 import { ImageProvider, GeneratedImageSet } from '@/types/image-generation';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 
 // Updated props for the controlled component
 interface ImageGeneratorProps {
@@ -17,6 +19,7 @@ interface ImageGeneratorProps {
   generationError: string | null;
   generatingInfo: string | null;
   onStartGenerationRequest: (provider: ImageProvider, numImagesPerPrompt: number, manualSinglePrompt?: string) => Promise<void>;
+  onRegenerateImages?: (provider: ImageProvider, prompts: string[]) => Promise<void>;
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({
@@ -26,10 +29,14 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   imageSets,
   generationError,
   generatingInfo,
-  onStartGenerationRequest
+  onStartGenerationRequest,
+  onRegenerateImages
 }) => {
   const [manualPrompt, setManualPrompt] = useState(""); // Was 'prompt'
   const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("openai"); // Was 'style'
+  
+  // New state for tracking selected images for regeneration
+  const [selectedImages, setSelectedImages] = useState<{ setIndex: number; imageIndex: number; prompt: string }[]>([]);
 
   const handleGenerateClick = () => {
     // Determine if we use script prompts or the manual one
@@ -61,6 +68,43 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         console.error("Failed to download image:", err);
         // Potentially set a local error state for download issues
       });
+  };
+
+  // New function to handle image selection for regeneration
+  const toggleImageSelection = (setIndex: number, imageIndex: number, prompt: string) => {
+    setSelectedImages(prev => {
+      // Check if this image is already selected
+      const existingIndex = prev.findIndex(
+        item => item.setIndex === setIndex && item.imageIndex === imageIndex
+      );
+      
+      if (existingIndex >= 0) {
+        // Image is already selected, so remove it
+        return prev.filter((_, i) => i !== existingIndex);
+      } else {
+        // Image is not selected, check if we're at the limit
+        if (prev.length >= 5) {
+          alert("Maximum 5 images can be selected for regeneration at once");
+          return prev;
+        }
+        // Add to selection
+        return [...prev, { setIndex, imageIndex, prompt }];
+      }
+    });
+  };
+
+  // New function to handle image regeneration
+  const handleRegenerateClick = async () => {
+    if (!onRegenerateImages || selectedImages.length === 0) return;
+    
+    // Extract prompts from selected images
+    const prompts = selectedImages.map(item => item.prompt);
+    
+    // Call the parent's regenerate function
+    await onRegenerateImages(selectedProvider, prompts);
+    
+    // Clear selection after regeneration
+    setSelectedImages([]);
   };
 
   const promptsAvailable = (scriptPrompts && scriptPrompts.length > 0) || manualPrompt.trim() !== '';
@@ -120,10 +164,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   // onChange={(e) => setMinimaxAspectRatioState(e.target.value as any)}
                   disabled={isLoadingImages}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  defaultValue="16:9"
                 >
-                  <option value="16:9">16:9</option>
-                  <option value="1:1">1:1</option>
-                  <option value="9:16">9:16</option>
+                  <option value="16:9">16:9 (Landscape)</option>
                 </select>
             </div>
            )}
@@ -144,6 +187,40 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Regeneration Controls - new section that only appears when images are selected */}
+      {selectedImages.length > 0 && (
+        <div className="p-4 border rounded-lg bg-card shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <Badge variant="secondary" className="px-2 py-1 text-sm">
+              {selectedImages.length} image{selectedImages.length !== 1 ? 's' : ''} selected
+            </Badge>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select up to 5 images to regenerate with the same prompts
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setSelectedImages([])}
+              disabled={isLoadingImages}
+            >
+              Clear Selection
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={handleRegenerateClick}
+              disabled={isLoadingImages || selectedImages.length === 0}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Regenerate {selectedImages.length} Image{selectedImages.length !== 1 ? 's' : ''}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Error Display */}
       {generationError && (
@@ -183,36 +260,91 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 <p className="text-sm text-red-500">No images were generated for this prompt. Check errors or server logs.</p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {set.imageUrls.map((url, index) => (
-                <div key={`url-${index}`} className="relative group border rounded-lg overflow-hidden shadow aspect-square">
-                <img 
-                    src={url} 
-                    alt={`Generated for: ${set.originalPrompt.substring(0,30)}... - Image ${index + 1}`}
-                    className="w-full h-full object-cover"
-                />
-                  <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                    <Button size="sm" variant="secondary" onClick={() => downloadImage(url, `generated_image_${setIndex}_${index}.png`)}>
-                    <Download size={16} className="mr-2" />
-                    Download
-                  </Button>
-                </div>
-              </div>
-            ))}
-              {set.imageData.map((b64, index) => (
-                 <div key={`b64-${index}`} className="relative group border rounded-lg overflow-hidden shadow aspect-square">
-                  <img 
-                    src={`data:image/png;base64,${b64}`}
-                    alt={`Generated (base64) for: ${set.originalPrompt.substring(0,30)}... - Image ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                   <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                    <Button size="sm" variant="secondary" onClick={() => downloadImage(`data:image/png;base64,${b64}`, `generated_image_b64_${setIndex}_${index}.png`)}>
-                      <Download size={16} className="mr-2" />
-                      Download
-                    </Button>
+              {set.imageUrls.map((url, imageIndex) => {
+                // Check if this image is selected for regeneration
+                const isSelected = selectedImages.some(
+                  item => item.setIndex === setIndex && item.imageIndex === imageIndex
+                );
+                
+                return (
+                  <div key={`url-${imageIndex}`} className={`relative group border rounded-lg overflow-hidden shadow aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                    <img 
+                      src={url} 
+                      alt={`Generated for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                      <div className="flex flex-col gap-2 items-center">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => downloadImage(url, `generated_image_${setIndex}_${imageIndex}.png`)}>
+                            <Download size={16} className="mr-2" />
+                            Download
+                          </Button>
+                          
+                          <Button 
+                            size="sm" 
+                            variant={isSelected ? "default" : "outline"}
+                            onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
+                            disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
+                          >
+                            <RefreshCw size={16} className="mr-2" />
+                            {isSelected ? "Selected" : "Select"}
+                          </Button>
+                        </div>
+                        
+                        {isSelected && (
+                          <Badge variant="outline" className="bg-primary/20">
+                            Selected for regeneration
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              
+              {set.imageData.map((b64, imageIndex) => {
+                // Check if this image is selected for regeneration
+                const isSelected = selectedImages.some(
+                  item => item.setIndex === setIndex && item.imageIndex === imageIndex + set.imageUrls.length
+                );
+                
+                return (
+                  <div key={`b64-${imageIndex}`} className={`relative group border rounded-lg overflow-hidden shadow aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                    <img 
+                      src={`data:image/png;base64,${b64}`}
+                      alt={`Generated (base64) for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                      <div className="flex flex-col gap-2 items-center">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => downloadImage(`data:image/png;base64,${b64}`, `generated_image_b64_${setIndex}_${imageIndex}.png`)}>
+                            <Download size={16} className="mr-2" />
+                            Download
+                          </Button>
+                          
+                          <Button 
+                            size="sm" 
+                            variant={isSelected ? "default" : "outline"}
+                            onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
+                            disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
+                          >
+                            <RefreshCw size={16} className="mr-2" />
+                            {isSelected ? "Selected" : "Select"}
+                          </Button>
+                        </div>
+                        
+                        {isSelected && (
+                          <Badge variant="outline" className="bg-primary/20">
+                            Selected for regeneration
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

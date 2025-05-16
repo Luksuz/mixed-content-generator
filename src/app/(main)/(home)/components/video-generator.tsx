@@ -140,7 +140,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                     <img
                       src={imageUrl}
                       alt={`Generated image ${index + 1}`}
-                      className="aspect-square object-cover w-full h-full"
+                      className="aspect-video object-cover w-full h-full"
                     />
                     {selectedImageUrls.includes(imageUrl) && (
                       <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">

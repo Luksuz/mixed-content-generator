@@ -5,17 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScriptSection } from "@/types";
+import { RefreshCw } from "lucide-react";
 
 interface ScriptSectionCardProps {
   section: ScriptSection;
   index: number;
   onUpdate: (updatedSection: ScriptSection) => void;
+  onSelectForRegeneration?: () => void;
 }
 
 const ScriptSectionCard = ({
   section,
   index,
   onUpdate,
+  onSelectForRegeneration,
 }: ScriptSectionCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(section.title);
@@ -38,6 +41,16 @@ const ScriptSectionCard = ({
     setIsEditing(false);
   };
 
+  const handleDirectRegeneration = () => {
+    // Log when regeneration is triggered
+    console.log(`🔄 Triggering regeneration for section ${index + 1}: "${section.title}"`);
+    
+    // Call the parent component's regeneration function
+    if (onSelectForRegeneration) {
+      onSelectForRegeneration();
+    }
+  };
+
   return (
     <div className="border rounded-lg p-4 bg-card shadow-sm">
       <div className="flex justify-between items-start mb-2">
@@ -47,9 +60,22 @@ const ScriptSectionCard = ({
           </span>
         </div>
         {!isEditing ? (
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              Edit
+            </Button>
+            {onSelectForRegeneration && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleDirectRegeneration}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw size={14} />
+                Regenerate
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleCancel}>

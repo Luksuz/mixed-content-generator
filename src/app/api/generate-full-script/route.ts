@@ -8,12 +8,14 @@ import { removeMarkdown } from "../../../lib/utils";
 export async function POST(request: Request) {
   try {
     const requestData = await request.json();
-    const { title, theme, sections } = requestData;
+    const { title, theme, sections, additionalPrompt, forbiddenWords } = requestData;
     
     console.log("Received request for script generation:");
     console.log("- Title:", title);
     console.log("- Theme:", theme);
     console.log("- Sections:", Array.isArray(sections) ? `${sections.length} sections` : "None");
+    console.log("- Additional Prompt:", additionalPrompt ? "Provided" : "None");
+    console.log("- Forbidden Words:", forbiddenWords ? "Provided" : "None");
     
     if (!title || !theme || !sections || !Array.isArray(sections) || sections.length === 0) {
       console.log("Missing or invalid required fields");
@@ -31,6 +33,27 @@ export async function POST(request: Request) {
     });
     console.log("Model initialized");
 
+    // Build additional instructions based on optional parameters
+    let additionalInstructions = "";
+    
+    if (additionalPrompt && additionalPrompt.trim()) {
+      additionalInstructions += `
+ADDITIONAL INSTRUCTIONS:
+${additionalPrompt.trim()}
+`;
+    }
+    
+    // Add forbidden words if provided
+    if (forbiddenWords && forbiddenWords.trim()) {
+      const wordsList = forbiddenWords.split(',').map((word: string) => word.trim()).filter(Boolean);
+      if (wordsList.length > 0) {
+        additionalInstructions += `
+FORBIDDEN WORDS:
+The following words should be completely avoided in your script: ${wordsList.join(', ')}.
+`;
+      }
+    }
+
     // Create an async function to process a single section
     const processSection = async (section: ScriptSection, index: number) => {
       try {
@@ -44,6 +67,7 @@ TITLE: ${title}
 THEME: ${theme}
 SECTION ${index + 1} TITLE: ${section.title}
 WRITING INSTRUCTIONS: ${section.writingInstructions}
+${additionalInstructions}
 
 Based on the WRITING INSTRUCTIONS, generate ONLY the text that is to be spoken aloud by a narrator for this section of the script.
 Your response must exclusively contain the narrative and dialogue that will be voiced.
@@ -141,11 +165,14 @@ Maintain a word count of approximately 500-800 words for this section, consistin
 
     const scriptCleaned = removeMarkdown(fullScriptWithMarkdown);
     
-    console.log("Full script generated successfully");
+    // Calculate word count
+    const wordCount = scriptCleaned.split(/\s+/).filter(Boolean).length;
+    console.log(`Full script generated successfully with ${wordCount} words`);
 
     return NextResponse.json({ 
       scriptWithMarkdown: fullScriptWithMarkdown, 
-      scriptCleaned: scriptCleaned 
+      scriptCleaned: scriptCleaned,
+      wordCount
     });
   } catch (error) {
     console.error("Error generating full script:", error);

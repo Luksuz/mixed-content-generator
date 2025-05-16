@@ -199,6 +199,73 @@ const GeneratorsPage = () => {
     }
   };
 
+  // Add a function to handle regenerating selected images
+  const handleRegenerateImages = async (provider: ImageProvider, prompts: string[]) => {
+    if (prompts.length === 0) {
+      setImageGenerationError("No prompts provided for regeneration");
+      return;
+    }
+    
+    if (prompts.length > 5) {
+      setImageGenerationError("Maximum 5 images can be regenerated at once");
+      return;
+    }
+    
+    setIsGeneratingImages(true);
+    setImageGenerationError(null);
+    setCurrentImageGeneratingInfo(`Regenerating ${prompts.length} selected image${prompts.length > 1 ? 's' : ''}...`);
+    
+    try {
+      const response = await fetch('/api/regenerate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          prompts,
+          minimaxAspectRatio: "16:9",
+          userId: selectedUserId || 'unknown_user'
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to regenerate images');
+      }
+      
+      const data = await response.json();
+      
+      if (data.regeneratedImages && Array.isArray(data.regeneratedImages)) {
+        // Process the regenerated images
+        const newImages = data.regeneratedImages.map((item: { imageUrl: string; originalPrompt: string }) => ({
+          originalPrompt: item.originalPrompt,
+          imageUrls: [item.imageUrl],
+          imageData: []
+        }));
+        
+        // Add new images to the existing list
+        setGeneratedImageSetsList(prev => [...newImages, ...prev]);
+        
+        console.log(`✅ Successfully regenerated ${data.totalSuccessful} images`);
+        
+        if (data.totalFailed > 0) {
+          console.warn(`⚠️ Failed to regenerate ${data.totalFailed} images`);
+          if (data.errors) {
+            console.error('Regeneration errors:', data.errors);
+          }
+        }
+      } else {
+        setImageGenerationError('Received invalid response from image regeneration service');
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || 'An unexpected error occurred during image regeneration';
+      console.error('Image regeneration error:', err);
+      setImageGenerationError(errorMsg);
+    } finally {
+      setIsGeneratingImages(false);
+      setCurrentImageGeneratingInfo(null);
+    }
+  };
+
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
     if (!selectedUserId) { // Check if a user is selected
       setVideoGenerationError("Please select a user before creating a video.");
@@ -349,6 +416,7 @@ const GeneratorsPage = () => {
               generationError={imageGenerationError}
               generatingInfo={currentImageGeneratingInfo}
               onStartGenerationRequest={handleStartImageGeneration}
+              onRegenerateImages={handleRegenerateImages}
             />
           </TabsContent>
           

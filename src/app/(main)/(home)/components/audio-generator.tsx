@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Placeholder types (as the original files are missing)
-type AudioProvider = "google-tts" | "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Expanded based on usage in file
+type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Removed "google-tts"
 
 interface VoiceInfo {
   value: string;
@@ -17,10 +17,7 @@ interface VoiceInfo {
 }
 
 // Placeholder voice data (examples, replace with actual data if needed)
-const googleTTSVoices: VoiceInfo[] = [
-  { value: "en-US-Wavenet-D", label: "Google English (Wavenet-D)" },
-  { value: "en-US-Wavenet-A", label: "Google English (Wavenet-A)" },
-];
+// Removed googleTTSVoices array
 const elevenLabsVoices: VoiceInfo[] = [
   { value: "Rachel", label: "ElevenLabs Rachel" },
   { value: "Adam", label: "ElevenLabs Adam" },
@@ -86,8 +83,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   selectedUserId,
 }) => {
   const [textToConvert, setTextToConvert] = useState<string>(initialText || "");
-  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("google-tts");
-  const [selectedVoice, setSelectedVoice] = useState<string>(googleTTSVoices[0]?.value || "");
+  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("elevenlabs");
+  const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
@@ -310,8 +307,6 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         return elevenLabsVoicesList.length > 0 
             ? elevenLabsVoicesList.map((v: VoiceOption): VoiceInfo => ({ value: v.id, label: v.name })) 
             : defaultElevenLabsVoices.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
-      case "google-tts":
-        return googleTTSVoices;
       case "minimax-tts":
         return minimaxTTSVoices;
       case "openai":
@@ -445,7 +440,6 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               disabled={isGeneratingAudio || isGeneratingSubtitles}
               className="w-full p-2 border rounded mt-1 bg-background text-foreground"
             >
-              <option value="google-tts">Google TTS</option>
               <option value="elevenlabs">ElevenLabs</option>
               <option value="minimax-tts">Minimax TTS</option>
               <option value="openai">OpenAI</option>

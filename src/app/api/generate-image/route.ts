@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
             prompt,
             numberOfImages = 1,
             outputFormat = "url", // Keep outputFormat, default to url
-            minimaxAspectRatio = "16:9",
+            minimaxAspectRatio = "16:9", // Default to landscape
             userId = "unknown_user"
         } = body;
 

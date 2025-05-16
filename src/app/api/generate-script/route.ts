@@ -6,7 +6,14 @@ import { removeMarkdown } from "../../../lib/utils";
 
 export async function POST(request: Request) {
   try {
-    const { title, wordCount, theme } = await request.json();
+    const { 
+      title, 
+      wordCount, 
+      theme, 
+      additionalPrompt, 
+      inspirationalTranscript, 
+      forbiddenWords 
+    } = await request.json();
     
     if (!title || !wordCount || !theme) {
       return NextResponse.json(
@@ -28,6 +35,37 @@ export async function POST(request: Request) {
     // Calculate the number of sections based on word count
     const numSections = Math.max(1, Math.floor(wordCount / 800));
 
+    // Build additions to the prompt based on optional parameters
+    let additionalInstructions = "";
+    
+    // Add transcript as inspiration if provided
+    if (inspirationalTranscript && inspirationalTranscript.trim()) {
+      additionalInstructions += `
+    INSPIRATIONAL TRANSCRIPT:
+    Use the following transcript as inspiration for the tone, style, and structure of your script:
+    ${inspirationalTranscript.trim()}
+    `;
+    }
+    
+    // Add forbidden words if provided
+    if (forbiddenWords && forbiddenWords.trim()) {
+      const wordsList = forbiddenWords.split(',').map((word: string) => word.trim()).filter(Boolean);
+      if (wordsList.length > 0) {
+        additionalInstructions += `
+    FORBIDDEN WORDS:
+    The following words should be completely avoided in your script outline: ${wordsList.join(', ')}.
+    `;
+      }
+    }
+    
+    // Add any additional custom instructions
+    if (additionalPrompt && additionalPrompt.trim()) {
+      additionalInstructions += `
+    ADDITIONAL INSTRUCTIONS:
+    ${additionalPrompt.trim()}
+    `;
+    }
+
     // Create the prompt for the model
     const prompt = `
     You are a professional script outline generator. Create a detailed script outline for a story with the following details:
@@ -35,6 +73,7 @@ export async function POST(request: Request) {
     Title: ${title}
     Theme: ${theme}
     Word Count: Approximately ${wordCount} words (this is the target for the story itself, CTAs will add to it)
+    ${additionalInstructions}
 
     Based on the word count, I want you to generate ${numSections} main story sections for this script.
     
@@ -81,6 +120,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ sections: parsedResponse });
   } catch (error) {
+    console.error("Error generating script outline:", error);
     return NextResponse.json(
       { error: "An error occurred while generating the script outline" },
       { status: 500 }

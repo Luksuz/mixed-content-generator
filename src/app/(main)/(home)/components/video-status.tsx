@@ -222,7 +222,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
           jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job) => (
             <div key={job.id} className="flex flex-col sm:flex-row rounded-lg overflow-hidden border shadow-sm">
               {/* Thumbnail section */}
-              <div className="sm:w-48 h-32 sm:h-full bg-muted relative flex-shrink-0">
+              <div className="sm:w-64 aspect-video bg-muted relative flex-shrink-0">
                 {job.thumbnail_url ? (
                   <img 
                     src={job.thumbnail_url} 
