@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -15,6 +14,7 @@ interface VideoGeneratorProps {
   generatedVideoUrl: string | null;
   videoGenerationError: string | null;
   onStartVideoCreation: (selectedImageUrls: string[]) => Promise<void>;
+  thumbnailUrl?: string | null;
 }
 
 const MAX_SELECTED_IMAGES = 20;
@@ -25,6 +25,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   generatedVideoUrl,
   videoGenerationError,
   onStartVideoCreation,
+  thumbnailUrl,
 }) => {
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -88,6 +89,29 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {thumbnailUrl && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-lg font-semibold">Custom Video Thumbnail</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  This custom thumbnail will be used for your video.
+                </p>
+              </div>
+              <div className="border rounded-md p-2 flex justify-center">
+                <div className="relative w-1/2 aspect-video">
+                  <img 
+                    src={thumbnailUrl} 
+                    alt="Custom Video Thumbnail"
+                    className="object-cover w-full h-full rounded-md"
+                  />
+                  <div className="absolute bottom-2 right-2 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-medium">
+                    Thumbnail Ready
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {localError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />

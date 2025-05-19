@@ -49,6 +49,9 @@ const GeneratorsPage = () => {
   const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>([]);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
   const [currentImageGeneratingInfo, setCurrentImageGeneratingInfo] = useState<string | null>(null);
+  
+  // Thumbnail State - New
+  const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(null);
 
   // Video Generator State - New
   const [isGeneratingVideo, setIsGeneratingVideo] = useState<boolean>(false);
@@ -285,6 +288,17 @@ const GeneratorsPage = () => {
     }
   };
 
+  // Handler for thumbnail generation
+  const handleThumbnailGenerated = (thumbnailUrl: string) => {
+    console.log("Thumbnail generated and ready for video:", thumbnailUrl);
+    setGeneratedThumbnailUrl(thumbnailUrl);
+    
+    // Optionally switch to video tab when a thumbnail is ready
+    if (activeTab === "image") {
+      setActiveTab("video");
+    }
+  };
+
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
     if (!actualUserId) { // Check if a user is selected
       setVideoGenerationError("Please select a user before creating a video.");
@@ -314,9 +328,10 @@ const GeneratorsPage = () => {
         audioUrl: generatedAudioUrl,
         subtitlesUrl: generatedSubtitlesUrl || undefined,
         userId: actualUserId,
+        thumbnailUrl: generatedThumbnailUrl || undefined, // Include custom thumbnail if available
       };
       
-      console.log(`Creating video with ${selectedImageUrls.length} images, audio, and ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}.`);
+      console.log(`Creating video with ${selectedImageUrls.length} images, audio, ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}, and ${generatedThumbnailUrl ? 'custom thumbnail' : 'default thumbnail'}.`);
       
       const response = await fetch('/api/create-video', {
         method: 'POST',
@@ -443,6 +458,7 @@ const GeneratorsPage = () => {
               generatingInfo={currentImageGeneratingInfo}
               onStartGenerationRequest={handleStartImageGeneration}
               onRegenerateImages={handleRegenerateImages}
+              onThumbnailGenerated={handleThumbnailGenerated}
             />
           </TabsContent>
           
@@ -453,6 +469,7 @@ const GeneratorsPage = () => {
               generatedVideoUrl={generatedVideoUrl}
               videoGenerationError={videoGenerationError}
               onStartVideoCreation={handleStartVideoCreation}
+              thumbnailUrl={generatedThumbnailUrl}
             />
           </TabsContent>
           <TabsContent value="gdrive" className="mt-0">

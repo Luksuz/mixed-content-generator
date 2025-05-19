@@ -29,7 +29,7 @@ async function isUrlAccessible(url: string): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateVideoRequestBody = await request.json();
-    const { imageUrls, audioUrl, subtitlesUrl, userId } = body;
+    const { imageUrls, audioUrl, subtitlesUrl, userId, thumbnailUrl } = body;
 
     // Validate inputs
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
         image_urls: imageUrls,
         audio_url: audioUrl,
         subtitles_url: subtitlesUrl,
-        thumbnail_url: imageUrls[0], // Use the first image as thumbnail
+        // Use provided thumbnail URL if available, otherwise fall back to first image
+        thumbnail_url: thumbnailUrl || imageUrls[0],
         created_at: new Date().toISOString()
       });
 

@@ -28,12 +28,14 @@ if (supabaseUrl && supabaseServiceKey) {
  * @param fileSource Path to the local file (string) or a Buffer containing the file data.
  * @param destinationPath The desired path within the Supabase bucket (e.g., 'user_123/audio/myaudio.mp3').
  * @param contentType The MIME type of the file (e.g., 'audio/mpeg', 'image/png').
+ * @param bucketNameOverride Optional bucket name to use instead of the default
  * @returns The public URL of the uploaded file, or null on failure.
  */
 export async function uploadFileToSupabase(
   fileSource: string | Buffer,
   destinationPath: string,
-  contentType: string
+  contentType: string,
+  bucketNameOverride?: string
 ): Promise<string | null> {
   if (!supabaseAdmin) {
     console.error("Supabase Admin client is not initialized. Cannot upload file.");
@@ -55,10 +57,11 @@ export async function uploadFileToSupabase(
       throw new Error("Invalid fileSource type. Must be a file path (string) or a Buffer.");
     }
 
-    console.log(`Uploading to Supabase bucket '${supabaseBucket}' at path: ${destinationPath}`);
+    const targetBucket = bucketNameOverride || supabaseBucket;
+    console.log(`Uploading to Supabase bucket '${targetBucket}' at path: ${destinationPath}`);
 
     const { data, error } = await supabaseAdmin.storage
-      .from(supabaseBucket)
+      .from(targetBucket)
       .upload(destinationPath, fileBody, {
         contentType: contentType,
         upsert: true, // Overwrite if file exists (optional)
@@ -71,7 +74,7 @@ export async function uploadFileToSupabase(
 
     // Construct the public URL
     const { data: urlData } = supabaseAdmin.storage
-      .from(supabaseBucket)
+      .from(targetBucket)
       .getPublicUrl(destinationPath);
 
     const publicURL = urlData?.publicUrl;
