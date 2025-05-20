@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { Download, AlertCircle, Clock, CheckCircle, Loader2, UploadCloud, ChevronsUpDown, Check, Film } from 'lucide-react';
+import { Download, AlertCircle, Clock, CheckCircle, Loader2, UploadCloud, ChevronsUpDown, Check, Film, Sparkles } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { useInterval } from "@/hooks/use-interval";
+import { motion } from "framer-motion";
 
 export interface VideoJob {
   id: string; // video_id from backend
@@ -113,6 +114,21 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
     }
   };
 
+  const getStatusClass = (status: VideoJob['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border-emerald-500/30';
+      case 'processing':
+        return 'bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border-blue-500/30';
+      case 'pending':
+        return 'bg-gradient-to-r from-slate-600/20 to-gray-600/20 border-slate-500/30';
+      case 'failed':
+        return 'bg-gradient-to-r from-red-600/20 to-rose-600/20 border-red-500/30';
+      default:
+        return 'bg-black/20 border-white/10';
+    }
+  };
+
   const handleDownload = (url: string) => {
     const link = document.createElement('a');
     link.href = url;
@@ -199,30 +215,60 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
     }
   };
 
+  // Transition variants for list animations
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <Card className="mt-8">
-      <CardHeader>
-        <CardTitle>Video Generation Jobs</CardTitle>
+    <Card className="mt-8 futuristic-card relative overflow-hidden animate-fadeIn shadow-glow-blue">
+      {/* Background blobs */}
+      <div className="blob w-[250px] h-[250px] top-0 -right-20 opacity-10"></div>
+      <div className="blob-cyan w-[200px] h-[200px] -bottom-10 -left-10 opacity-10"></div>
+
+      <CardHeader className="relative z-10 border-b border-blue-500/20">
+        <CardTitle className="gradient-text flex items-center gap-2">
+          <Film className="h-5 w-5 text-blue-400" />
+          Video Generation Jobs
+        </CardTitle>
         {pollingJobs.size > 0 && (
           <div className="flex items-center text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            Polling for updates on {pollingJobs.size} job(s)...
+            <Loader2 className="h-4 w-4 animate-spin mr-2 text-blue-400" />
+            <span className="glow-text-cyan">Polling for updates on {pollingJobs.size} job(s)...</span>
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 relative z-10 futuristic-scrollbar max-h-[600px] overflow-y-auto py-4">
         {isLoading ? (
-          <div className="flex justify-center items-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading jobs...</span>
+          <div className="flex justify-center items-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400 mr-3" />
+            <span className="glow-text">Loading jobs...</span>
           </div>
         ) : jobs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No video generation jobs found for the selected user.</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Film className="h-12 w-12 text-blue-400 opacity-50 mb-3" />
+            <p className="text-muted-foreground">No video generation jobs found for the selected user.</p>
+          </div>
         ) : (
-          jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job) => (
-            <div key={job.id} className="flex flex-col sm:flex-row rounded-lg overflow-hidden border shadow-sm">
+          jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((job, index) => (
+            <div 
+              key={job.id} 
+              className="flex flex-col sm:flex-row rounded-lg overflow-hidden border border-blue-500/20 shadow-glow-blue animate-zoomIn futuristic-card"
+              style={{ animationDelay: `${index * 100}ms` }}
+            >
               {/* Thumbnail section */}
-              <div className="sm:w-64 aspect-video bg-muted relative flex-shrink-0">
+              <div className="sm:w-64 aspect-video bg-gradient-to-br from-slate-900 to-blue-900/30 relative flex-shrink-0">
                 {job.thumbnail_url ? (
                   <img 
                     src={job.thumbnail_url} 
@@ -231,12 +277,16 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <Film className="h-10 w-10 text-muted-foreground" />
-                </div>
+                    <Film className="h-10 w-10 text-muted-foreground opacity-50" />
+                  </div>
                 )}
                 <Badge 
                   variant={getStatusBadgeVariant(job.status)} 
-                  className="absolute top-2 right-2 capitalize flex items-center gap-1"
+                  className={`absolute top-2 right-2 capitalize flex items-center gap-1 
+                    ${job.status === 'completed' ? 'shadow-glow-blue bg-blue-500/20' : 
+                      job.status === 'processing' ? 'shadow-glow-purple bg-purple-500/20' : 
+                      job.status === 'pending' ? 'shadow-glow-cyan bg-cyan-500/20' : 
+                      'shadow-glow-red bg-red-500/20'}`}
                 >
                    {getStatusIcon(job.status)} 
                    {job.status}
@@ -247,7 +297,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
               <div className="flex-1 p-4">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="text-sm font-medium truncate mr-2" title={job.id}>
+                    <h3 className="text-sm font-medium truncate mr-2 glow-text" title={job.id}>
                       Video ID: {job.id.substring(0, 8)}...
                     </h3>
                     <span className="text-xs text-muted-foreground flex flex-wrap">
@@ -257,7 +307,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                       )}
                     </span>
                     {job.subtitles_url && (
-                      <span className="text-xs text-blue-500 flex items-center mt-1">
+                      <span className="text-xs text-cyan-400 flex items-center mt-1">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
@@ -272,7 +322,7 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                   <Button 
                     size="sm" 
                     onClick={() => handleDownload(job.videoUrl!)}
-                    className="flex-grow"
+                    className="flex-grow shimmer bg-gradient-to-r from-blue-600/80 to-purple-600/80 border-0 shadow-glow-blue"
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download Video
@@ -282,35 +332,38 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                     variant="outline" 
                     onClick={() => handleInitiateDriveUpload(job)}
                     disabled={isFetchingFolders || (jobToUpload === job && isUploadingToDrive)}
-                    className="flex-grow"
+                    className="flex-grow futuristic-input hover:bg-purple-600/20 hover:shadow-glow-purple"
                   >
-                    <UploadCloud className="mr-2 h-4 w-4" />
+                    <UploadCloud className="mr-2 h-4 w-4 text-purple-400" />
                     {jobToUpload === job && isUploadingToDrive ? 'Uploading...' : (jobToUpload === job && isFetchingFolders ? 'Loading Folders...' : 'Upload to GDrive')}
                   </Button>
                 </div>
               )}
 
               {jobToUpload === job && (
-                <div className="mt-2 space-y-2 p-3 border rounded-md bg-muted/30">
-                  <p className="text-sm font-medium">Select Google Drive Folder:</p>
+                <div className="mt-2 space-y-2 p-3 border rounded-md bg-blue-900/10 border-blue-500/20">
+                  <p className="text-sm font-medium glow-text-cyan">Select Google Drive Folder:</p>
                   {isFetchingFolders ? (
-                    <div className="flex items-center"><Loader2 className="h-4 w-4 animate-spin mr-2" /><span>Fetching folders...</span></div>
+                    <div className="flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2 text-blue-400" />
+                      <span className="text-muted-foreground">Fetching folders...</span>
+                    </div>
                   ) : folders.length > 0 ? (
                     <SelectPrimitive.Root onValueChange={setTargetFolderId} value={targetFolderId}>
-                      <SelectPrimitive.Trigger className="inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full">
+                      <SelectPrimitive.Trigger className="inline-flex items-center justify-between rounded-md border border-blue-500/30 bg-blue-900/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full backdrop-blur-sm">
                         <SelectPrimitive.Value placeholder="Select a folder..." />
                         <SelectPrimitive.Icon asChild>
                           <ChevronsUpDown className="h-4 w-4 opacity-50" />
                         </SelectPrimitive.Icon>
                       </SelectPrimitive.Trigger>
                       <SelectPrimitive.Portal>
-                        <SelectPrimitive.Content className="relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-80">
+                        <SelectPrimitive.Content className="relative z-50 min-w-[8rem] overflow-hidden rounded-md border border-blue-500/30 bg-blue-900/90 text-white shadow-md animate-in fade-in-80 backdrop-blur-md">
                           <SelectPrimitive.Viewport className="p-1">
                             {folders.map(folder => (
                               <SelectPrimitive.Item 
                                 key={folder.id} 
                                 value={folder.id} 
-                                className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                                className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-blue-800/50 focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
                               >
                                 <SelectPrimitive.ItemText>{folder.name}</SelectPrimitive.ItemText>
                                 <SelectPrimitive.ItemIndicator className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
@@ -329,16 +382,16 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
                     size="sm" 
                     onClick={handleConfirmDriveUpload} 
                     disabled={!targetFolderId || isUploadingToDrive || isFetchingFolders}
-                    className="w-full"
+                    className="w-full shimmer bg-gradient-to-r from-purple-600/80 to-cyan-600/80 border-0 shadow-glow-purple"
                    >
-                    {isUploadingToDrive ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {isUploadingToDrive ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                     Confirm Upload to Drive
                   </Button>
                 </div>
               )}
 
               {job.status === 'failed' && job.errorMessage && (
-                  <Alert variant="destructive" className="mt-2 text-xs">
+                  <Alert variant="destructive" className="mt-2 text-xs bg-red-900/20 border-red-500/30">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Error</AlertTitle>
                   <AlertDescription className="text-xs">

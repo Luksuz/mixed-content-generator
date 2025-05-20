@@ -4,9 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Volume2, Download, Play, Pause, Loader2, AlertCircle, CheckCircle, MessageSquare } from "lucide-react";
+import { Volume2, Download, Play, Pause, Loader2, AlertCircle, CheckCircle, MessageSquare, AudioWaveform, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion } from "framer-motion";
 
 // Placeholder types (as the original files are missing)
 type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Removed "google-tts"
@@ -409,17 +410,39 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     return options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>);
   };
 
+  // Function to render progress bar
+  const renderProgressBar = () => {
+    const percent = audioDuration ? (currentTime / audioDuration) * 100 : 0;
+    
+    return (
+      <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden mt-2">
+        <div 
+          className="h-full bg-gradient-to-r from-blue-500 to-purple-500" 
+          style={{ width: `${percent}%` }}
+        ></div>
+      </div>
+    );
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Generate Audio</CardTitle>
-        <CardDescription>
+    <Card className="w-full futuristic-card animate-fadeIn shadow-glow-blue relative overflow-hidden">
+      {/* Background blobs */}
+      <div className="blob w-[200px] h-[200px] -top-20 -right-20 opacity-10"></div>
+      <div className="blob-cyan w-[200px] h-[200px] -bottom-20 -left-20 opacity-10"></div>
+      
+      <CardHeader className="relative z-10">
+        <CardTitle className="gradient-text flex items-center gap-2">
+          <AudioWaveform className="h-5 w-5 text-blue-400" />
+          Generate Audio
+        </CardTitle>
+        <CardDescription className="text-muted-foreground">
           Convert your script text into speech using various AI providers and voices.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      
+      <CardContent className="space-y-6 relative z-10">
         <div className="space-y-2">
-          <Label htmlFor="text-to-convert">Text to Convert</Label>
+          <Label htmlFor="text-to-convert" className="glow-text">Text to Convert</Label>
           <Textarea
             id="text-to-convert"
             placeholder="Enter the text you want to convert to audio..."
@@ -427,34 +450,34 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             onChange={(e) => setTextToConvert(e.target.value)}
             rows={6}
             disabled={isGeneratingAudio || isGeneratingSubtitles}
+            className="futuristic-input"
           />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="audio-provider-select">Audio Provider</Label>
+            <Label htmlFor="audio-provider-select" className="glow-text">Audio Provider</Label>
             <select
               id="audio-provider-select"
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value as AudioProvider)}
               disabled={isGeneratingAudio || isGeneratingSubtitles}
-              className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+              className="w-full p-2 rounded futuristic-input"
             >
               <option value="elevenlabs">ElevenLabs</option>
               <option value="minimax-tts">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
-              {/* Add other providers as needed */}
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="voice-selection-select">Voice</Label>
+            <Label htmlFor="voice-selection-select" className="glow-text">Voice</Label>
             <select
               id="voice-selection-select"
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
               disabled={isGeneratingAudio || isGeneratingSubtitles || getVoiceOptions().length === 0}
-              className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+              className="w-full p-2 rounded futuristic-input"
             >
               {getVoiceOptions().map((voice: VoiceInfo) => (
                 <option key={voice.value} value={voice.value}>{voice.label}</option>
@@ -466,20 +489,24 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         <Button 
           onClick={handleGenerateAudio} 
           disabled={isGeneratingAudio || isGeneratingSubtitles || !textToConvert.trim()}
-          className="w-full"
+          className="w-full relative overflow-hidden shimmer bg-gradient-to-r from-blue-600/80 via-purple-600/80 to-cyan-600/80 border-0 shadow-glow-blue"
         >
-          {(isGeneratingAudio || isGeneratingSubtitles) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {(isGeneratingAudio || isGeneratingSubtitles) ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="mr-2 h-4 w-4" />
+          )}
           {isGeneratingAudio ? "Generating Audio..." : isGeneratingSubtitles ? "Generating Subtitles..." : "Generate Audio & Subtitles"}
         </Button>
 
         {audioGenerationError && (
-          <div className="flex items-center text-red-500">
+          <div className="flex items-center text-red-500 bg-red-500/10 px-3 py-2 rounded-md border border-red-500/20">
             <AlertCircle className="mr-2 h-4 w-4" />
             <p>Audio Error: {audioGenerationError}</p>
           </div>
         )}
         {subtitleGenerationError && (
-          <div className="flex items-center text-red-500">
+          <div className="flex items-center text-red-500 bg-red-500/10 px-3 py-2 rounded-md border border-red-500/20">
             <AlertCircle className="mr-2 h-4 w-4" />
             <p>Subtitle Error: {subtitleGenerationError}</p>
           </div>
@@ -487,26 +514,49 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
       </CardContent>
 
       {(generatedAudioUrl || generatedSubtitlesUrlLocal) && (
-        <CardFooter className="flex-col items-start space-y-4">
+        <CardFooter className="flex-col items-start space-y-4 relative z-10">
           {generatedAudioUrl && (
-            <div className="w-full">
-                <Label className="flex items-center mb-2"><CheckCircle className="mr-2 h-5 w-5 text-green-500" /> Audio Generated Successfully</Label>
-                <audio src={generatedAudioUrl} controls className="w-full" ref={audioInstanceRef} 
+            <div className="w-full bg-gradient-to-r from-blue-900/20 to-purple-900/20 p-4 rounded-lg border border-blue-500/30 animate-zoomIn">
+                <Label className="flex items-center mb-2">
+                  <CheckCircle className="mr-2 h-5 w-5 text-green-500" /> 
+                  <span className="glow-text">Audio Generated Successfully</span>
+                </Label>
+                
+                <div className="mt-2">
+                  {renderProgressBar()}
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(audioDuration)}</span>
+                  </div>
+                </div>
+
+                <audio 
+                  src={generatedAudioUrl} 
+                  ref={audioInstanceRef} 
+                  className="hidden"
                   onLoadedData={() => {
                     if (audioInstanceRef.current) audioInstanceRef.current.volume = 0.5; 
                   }} 
                   onLoadStart={() => {
                     if(audioInstanceRef.current) audioInstanceRef.current.pause(); 
                     setIsPlaying(false);
-                }}>
-                    Your browser does not support the audio element.
-                </audio>
-                <div className="mt-2 flex space-x-2">
-                    <Button onClick={handlePlayPause} variant="outline" size="sm">
+                  }}
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <Button 
+                      onClick={handlePlayPause} 
+                      size="sm"
+                      className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400"
+                    >
                         {isPlaying ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isPlaying ? "Pause" : "Play"}
                     </Button>
-                    <Button onClick={handleDownloadAudio} variant="outline" size="sm">
+                    <Button 
+                      onClick={handleDownloadAudio} 
+                      size="sm"
+                      className="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-400"
+                    >
                         <Download className="mr-2 h-4 w-4" />
                         Download Audio
                     </Button>
@@ -515,17 +565,20 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
           )}
 
           {isGeneratingSubtitles && (
-            <div className="flex items-center text-muted-foreground w-full">
+            <div className="flex items-center text-muted-foreground w-full bg-blue-900/10 p-3 rounded-lg border border-blue-500/20 animate-pulse">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               <p>Generating subtitles, please wait...</p>
             </div>
           )}
 
           {generatedSubtitlesUrlLocal && (
-            <div className="w-full mt-4">
-                <Label className="flex items-center mb-2"><MessageSquare className="mr-2 h-5 w-5 text-blue-500" /> Subtitles Generated</Label>
+            <div className="w-full bg-gradient-to-r from-cyan-900/20 to-blue-900/20 p-4 rounded-lg border border-cyan-500/30 animate-zoomIn">
+                <Label className="flex items-center mb-2">
+                  <MessageSquare className="mr-2 h-5 w-5 text-cyan-500" /> 
+                  <span className="glow-text-cyan">Subtitles Generated</span>
+                </Label>
                 <p className="text-sm text-muted-foreground">
-                    Subtitles URL: <a href={generatedSubtitlesUrlLocal} target="_blank" rel="noopener noreferrer" className="underline">{generatedSubtitlesUrlLocal}</a>
+                    Subtitles URL: <a href={generatedSubtitlesUrlLocal} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{generatedSubtitlesUrlLocal}</a>
                 </p>
             </div>
           )}

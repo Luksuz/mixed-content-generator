@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ScriptSectionCard from "../_components/script-section-card";
 import { ScriptSection } from "@/types";
-import { Download, Upload, RefreshCw } from "lucide-react";
+import { Download, Upload, RefreshCw, Sparkles, FileText, DownloadCloud } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
 
 // Add new prop for callback
 interface ScriptGeneratorProps {
@@ -413,16 +414,27 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   };
 
   return (
-    <div className="space-y-8">
-      <Tabs defaultValue="form">
-        <TabsList className="mb-4">
-          <TabsTrigger value="form">Basic Settings</TabsTrigger>
-          <TabsTrigger value="advanced">Advanced Options</TabsTrigger>
+    <div className="space-y-8 relative animate-fadeIn">
+      {/* Animated background blobs */}
+      <div className="blob w-[300px] h-[300px] top-0 right-0 opacity-10"></div>
+      <div className="blob-cyan w-[250px] h-[250px] bottom-32 left-10 opacity-10"></div>
+      
+      <Tabs defaultValue="form" className="relative z-10">
+        <TabsList className="mb-4 backdrop-blur-sm bg-opacity-20 bg-blue-900 border border-blue-500/20 shadow-glow-blue">
+          <TabsTrigger value="form" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-300 data-[state=active]:shadow-glow-blue">
+            <span className="glow-text">Basic Settings</span>
+          </TabsTrigger>
+          <TabsTrigger value="advanced" className="data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-300 data-[state=active]:shadow-glow-purple">
+            <span className="glow-text-purple">Advanced Options</span>
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="form" className="w-full space-y-6 p-6 bg-card rounded-lg border shadow-sm">
+        <TabsContent value="form" className="w-full space-y-6 p-6 rounded-lg animate-slideUp futuristic-card shadow-glow-blue">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Script Generator</h2>
+            <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-400" />
+              Script Generator
+            </h2>
             <p className="text-muted-foreground">
               Create a script using AI. Fill in the details below.
             </p>
@@ -431,7 +443,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="title" className="flex justify-between">
-                <span>Title</span>
+                <span className="glow-text">Title</span>
                 {!title && <span className="text-red-500 text-xs">Required for regeneration</span>}
               </Label>
               <Input
@@ -439,12 +451,12 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                 placeholder="Enter a title for your script"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className={!title ? "border-red-300 focus-visible:ring-red-500" : ""}
+                className={`futuristic-input ${!title ? "border-red-300 focus-visible:ring-red-500" : ""}`}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="wordCount">Word Count</Label>
+              <Label htmlFor="wordCount" className="glow-text">Word Count</Label>
               <Input
                 id="wordCount"
                 type="number"
@@ -453,6 +465,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                 step={1000}
                 value={wordCount}
                 onChange={(e) => setWordCount(Number(e.target.value))}
+                className="futuristic-input"
               />
               <p className="text-xs text-muted-foreground">
                 This will generate {Math.max(1, Math.floor(wordCount / 800))} script sections
@@ -461,62 +474,76 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
             <div className="space-y-2">
               <Label htmlFor="theme" className="flex justify-between">
-                <span>Story Theme</span>
+                <span className="glow-text">Story Theme</span>
               </Label>
               <Input
                 id="theme"
                 placeholder="E.g., Mystery, Romance, Sci-Fi"
                 value={theme}
                 onChange={(e) => setTheme(e.target.value)}
+                className="futuristic-input"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="additionalPrompt">Additional Instructions (Optional)</Label>
+            <Label htmlFor="additionalPrompt" className="glow-text">Additional Instructions (Optional)</Label>
             <Textarea
               id="additionalPrompt"
               placeholder="Add any specific instructions for the AI to follow when generating your script"
               value={additionalPrompt}
               onChange={(e) => setAdditionalPrompt(e.target.value)}
-              className="min-h-[80px]"
+              className="min-h-[80px] futuristic-input"
             />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
-              className="flex-1" 
+              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-blue-600/80 to-purple-600/80 border-0 shadow-glow-blue" 
               onClick={handleGenerateOutline}
               disabled={isLoading || isGeneratingScript || !title}
             >
-              {isLoading ? "Generating..." : "Generate Outline"}
+              {isLoading ? "Generating..." : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Outline
+                </>
+              )}
             </Button>
             
             <Button 
-              className="flex-1" 
+              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-purple-600/80 to-cyan-600/80 border-0 shadow-glow-purple" 
               variant="secondary"
               onClick={handleGenerateFullScript}
               disabled={isGeneratingScript || isLoading || currentScriptSections.length === 0}
             >
-              {isGeneratingScript ? "Generating..." : "Generate Full Script"}
+              {isGeneratingScript ? "Generating..." : (
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Full Script
+                </>
+              )}
             </Button>
             
             {currentFullScript && (
               <Button 
                 variant="outline"
                 onClick={handleDownloadDocx}
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
               >
-                <Download size={16} />
+                <DownloadCloud size={16} className="text-blue-400" />
                 Download DOCX
               </Button>
             )}
           </div>
         </TabsContent>
 
-        <TabsContent value="advanced" className="w-full space-y-6 p-6 bg-card rounded-lg border shadow-sm">
+        <TabsContent value="advanced" className="w-full space-y-6 p-6 rounded-lg animate-slideUp futuristic-card shadow-glow-purple">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Advanced Options</h2>
+            <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-400" />
+              Advanced Options
+            </h2>
             <p className="text-muted-foreground">
               Fine-tune your script generation with these advanced settings.
             </p>
@@ -524,38 +551,39 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="inspirationalTranscript">Inspirational Video Transcript</Label>
+              <Label htmlFor="inspirationalTranscript" className="glow-text-purple">Inspirational Video Transcript</Label>
               <Textarea
                 id="inspirationalTranscript"
                 placeholder="Paste a transcript from a video that you'd like to use as inspiration"
                 value={inspirationalTranscript}
                 onChange={(e) => setInspirationalTranscript(e.target.value)}
-                className="min-h-[150px]"
+                className="min-h-[150px] futuristic-input"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="forbiddenWords">Forbidden Words (comma-separated)</Label>
+              <Label htmlFor="forbiddenWords" className="glow-text-purple">Forbidden Words (comma-separated)</Label>
               <Input
                 id="forbiddenWords"
                 placeholder="Words to avoid in the generated script, separated by commas"
                 value={forbiddenWords}
                 onChange={(e) => setForbiddenWords(e.target.value)}
+                className="futuristic-input"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="uploadScript">Upload Existing Script</Label>
+              <Label htmlFor="uploadScript" className="glow-text-purple">Upload Existing Script</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="uploadScript"
                   type="file"
                   accept=".txt,.md,.docx"
                   onChange={handleFileUpload}
-                  className="flex-1"
+                  className="flex-1 futuristic-input"
                 />
-                <Button variant="outline" className="gap-2">
-                  <Upload size={16} />
+                <Button variant="outline" className="gap-2 futuristic-input hover:bg-purple-600/20 hover:shadow-glow-purple">
+                  <Upload size={16} className="text-purple-400" />
                   Upload
                 </Button>
               </div>
@@ -565,26 +593,29 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       </Tabs>
 
       {/* Content Sections */}
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col lg:flex-row gap-8 relative z-10">
         {/* Outlines Section */}
-        <div className="w-full lg:w-1/2 space-y-6">
+        <div className="w-full lg:w-1/2 space-y-6 animate-slideUp">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Script Outline</h2>
+            <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-400" />
+              Script Outline
+            </h2>
             <p className="text-muted-foreground">
               Edit the generated sections to refine your script outline.
             </p>
           </div>
 
           {currentScriptSections.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center border rounded-lg bg-muted/50">
-              <p className="text-muted-foreground">
+            <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
+              <p className="text-muted-foreground glow-text">
                 {isLoading 
                   ? "Generating your script sections..." 
                   : "Generate an outline to see sections here"}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 futuristic-scrollbar overflow-y-auto max-h-[600px] pr-2">
               {currentScriptSections.map((section, index) => (
                 <ScriptSectionCard
                   key={index}
@@ -599,24 +630,27 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
         </div>
         
         {/* Full Script Section */}
-        <div className="w-full lg:w-1/2 space-y-6">
+        <div className="w-full lg:w-1/2 space-y-6 animate-slideUp">
           <div className="space-y-2 flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Full Script</h2>
+              <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+                <FileText className="h-5 w-5 text-cyan-400" />
+                Full Script
+              </h2>
               <p className="text-muted-foreground">
                 The complete script based on your outline.
               </p>
             </div>
             {currentFullScript && (
-              <div className="text-sm font-medium bg-primary/10 px-3 py-1 rounded-full">
+              <div className="text-sm font-medium glow-text bg-blue-900/20 px-3 py-1 rounded-full border border-blue-500/30">
                 Word Count: {scriptWordCount}
               </div>
             )}
           </div>
           
           {!currentFullScript ? (
-            <div className="h-[300px] flex items-center justify-center border rounded-lg bg-muted/50">
-              <p className="text-muted-foreground">
+            <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
+              <p className="text-muted-foreground glow-text-cyan">
                 {isGeneratingScript 
                   ? "Generating your full script..." 
                   : "Generate a full script to see it here"}
@@ -624,37 +658,40 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="border rounded-lg p-4 bg-card shadow-sm overflow-y-auto max-h-[600px]">
+              <div className="border rounded-lg p-4 futuristic-card shadow-glow-cyan futuristic-scrollbar overflow-y-auto max-h-[600px]">
                 <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <h1 className="text-xl font-bold mb-4">{title}</h1>
+                  <h1 className="text-xl font-bold mb-4 gradient-text">{title}</h1>
                   <ReactMarkdown>{currentFullScript}</ReactMarkdown>
                 </div>
               </div>
               
               {scriptSegments.length > 1 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Script Segments</h3>
+                  <h3 className="text-lg font-medium glow-text-cyan">Script Segments</h3>
                   <p className="text-sm text-muted-foreground">
                     The script is divided into segments of approximately 500 words each for easier editing.
                   </p>
                   
-                  {scriptSegments.map((segment, index) => (
-                    <div key={index} className="border rounded-lg p-4 bg-card shadow-sm">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium">Segment {index + 1}</h4>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleDirectRegeneration(index, segment)}
-                          disabled={isGeneratingScript}
-                        >
-                          <RefreshCw size={14} className="mr-2" />
-                          Regenerate
-                        </Button>
+                  <div className="space-y-4 futuristic-scrollbar overflow-y-auto max-h-[400px] pr-2">
+                    {scriptSegments.map((segment, index) => (
+                      <div key={index} className="border rounded-lg p-4 futuristic-card animate-zoomIn" style={{animationDelay: `${index * 100}ms`}}>
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium glow-text-cyan">Segment {index + 1}</h4>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDirectRegeneration(index, segment)}
+                            disabled={isGeneratingScript}
+                            className="futuristic-input hover:bg-cyan-600/20 hover:shadow-glow-cyan"
+                          >
+                            <RefreshCw size={14} className="mr-2 text-cyan-400" />
+                            Regenerate
+                          </Button>
+                        </div>
+                        <div className="text-sm whitespace-pre-wrap">{segment}</div>
                       </div>
-                      <div className="text-sm whitespace-pre-wrap">{segment}</div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

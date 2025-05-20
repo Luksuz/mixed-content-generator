@@ -7,7 +7,7 @@ import ImageGenerator from "./components/image-generator";
 import VideoGenerator from "./components/video-generator";
 import GoogleDriveComponent from "./components/google-drive-component";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Volume2, Image, Film, Database, Cloud } from "lucide-react";
+import { FileText, Volume2, Image, Film, Database, Cloud, Sparkles } from "lucide-react";
 import { ScriptSection } from "@/types";
 import { 
   ImageProvider, 
@@ -22,6 +22,24 @@ import Navbar from "@/components/navbar";
 import { predefinedUsers } from "@/types/users";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+// Import mock data
+import {
+  mockScriptSections,
+  mockFullScriptMarkdown,
+  mockFullScriptCleaned,
+  mockAudioUrl,
+  mockSubtitlesUrl,
+  mockGeneratedImageSets,
+  mockVideoJobs,
+  mockThumbnailUrl,
+  simulateLoading
+} from "@/lib/mock-data";
+
+// Determine if we should use mock data
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_NODE_ENV === 'development'
+
+// Mock user ID to use instead of the actual user ID
+const MOCK_USER_ID = "mock-user-123";
 
 const GeneratorsPage = () => {
   const [activeTab, setActiveTab] = useState("script");
@@ -30,28 +48,28 @@ const GeneratorsPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const { user, mappedUser } = useAuth();
   
-  // Real user ID from authentication (if available)
-  const actualUserId = user?.id || "";
+  // Use mock user ID instead of actual user ID
+  const actualUserId = USE_MOCK_DATA ? MOCK_USER_ID : (user?.id || "");
 
   // Script Generator State
-  const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>([]);
-  const [sharedFullScriptMarkdown, setSharedFullScriptMarkdown] = useState<string>("");
-  const [sharedFullScriptCleaned, setSharedFullScriptCleaned] = useState<string>("");
+  const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>(USE_MOCK_DATA ? mockScriptSections : []);
+  const [sharedFullScriptMarkdown, setSharedFullScriptMarkdown] = useState<string>(USE_MOCK_DATA ? mockFullScriptMarkdown : "");
+  const [sharedFullScriptCleaned, setSharedFullScriptCleaned] = useState<string>(USE_MOCK_DATA ? mockFullScriptCleaned : "");
 
   // Audio Generator State - Lifted
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
-  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
+  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(USE_MOCK_DATA ? mockAudioUrl : null);
   const [audioGenerationError, setAudioGenerationError] = useState<string | null>(null);
-  const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(null);
+  const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(USE_MOCK_DATA ? mockSubtitlesUrl : null);
 
   // Image Generator State - Lifted
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
-  const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>([]);
+  const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>(USE_MOCK_DATA ? mockGeneratedImageSets : []);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
   const [currentImageGeneratingInfo, setCurrentImageGeneratingInfo] = useState<string | null>(null);
   
   // Thumbnail State - New
-  const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(null);
+  const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(USE_MOCK_DATA ? mockThumbnailUrl : null);
 
   // Video Generator State - New
   const [isGeneratingVideo, setIsGeneratingVideo] = useState<boolean>(false);
@@ -59,13 +77,21 @@ const GeneratorsPage = () => {
   const [videoGenerationError, setVideoGenerationError] = useState<string | null>(null);
 
   // State for video job statuses
-  const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
+  const [videoJobs, setVideoJobs] = useState<VideoJob[]>(USE_MOCK_DATA ? mockVideoJobs : []);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(!USE_MOCK_DATA);
 
   // Fetch existing jobs on component mount
   useEffect(() => {
     const fetchJobs = async () => {
-      if (!actualUserId) return; // Don't fetch if no user selected
+      if (!actualUserId || USE_MOCK_DATA) {
+        if (USE_MOCK_DATA) {
+          // If using mock data, simulate a loading delay
+          setIsLoadingJobs(true);
+          await simulateLoading(1000);
+          setIsLoadingJobs(false);
+        }
+        return;
+      }
 
       setIsLoadingJobs(true);
       const supabase = createClient();
@@ -97,7 +123,7 @@ const GeneratorsPage = () => {
     fetchJobs();
     
     // If on video tab, set up polling for job updates
-    const pollingInterval = activeTab === "video" ? 
+    const pollingInterval = activeTab === "video" && !USE_MOCK_DATA ? 
       setInterval(() => {
         console.log(`⏱️ Polling: Running scheduled video jobs update (every 30s)`);
         fetchJobs();
@@ -146,6 +172,20 @@ const GeneratorsPage = () => {
 
   // Moved image generation logic to GeneratorsPage
   const handleStartImageGeneration = async (provider: ImageProvider, numberOfImagesPerPrompt: number, manualSinglePrompt?: string) => {
+    // If using mock data, simulate loading and return mock image sets
+    if (USE_MOCK_DATA) {
+      setIsGeneratingImages(true);
+      setImageGenerationError(null);
+      setCurrentImageGeneratingInfo("Generating images from your prompts...");
+      
+      // Simulate API call delay
+      await simulateLoading(2000);
+      
+      setIsGeneratingImages(false);
+      setCurrentImageGeneratingInfo(null);
+      return;
+    }
+    
     // Determine which prompts to use
     let promptsForGeneration: string[] = [];
     
@@ -223,6 +263,20 @@ const GeneratorsPage = () => {
 
   // Add a function to handle regenerating selected images
   const handleRegenerateImages = async (provider: ImageProvider, prompts: string[]) => {
+    // If using mock data, simulate loading and return
+    if (USE_MOCK_DATA) {
+      setIsGeneratingImages(true);
+      setImageGenerationError(null);
+      setCurrentImageGeneratingInfo(`Regenerating ${prompts.length} selected image${prompts.length > 1 ? 's' : ''}...`);
+      
+      // Simulate API call delay
+      await simulateLoading(2500);
+      
+      setIsGeneratingImages(false);
+      setCurrentImageGeneratingInfo(null);
+      return;
+    }
+    
     if (prompts.length === 0) {
       setImageGenerationError("No prompts provided for regeneration");
       return;
@@ -300,7 +354,35 @@ const GeneratorsPage = () => {
   };
 
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
-    if (!actualUserId) { // Check if a user is selected
+    // If using mock data, simulate video creation process
+    if (USE_MOCK_DATA) {
+      if (selectedImageUrls.length === 0) {
+        setVideoGenerationError("No images selected for video creation.");
+        return;
+      }
+      
+      setIsGeneratingVideo(true);
+      setGeneratedVideoUrl(null);
+      setVideoGenerationError(null);
+      
+      // Simulate API call delay
+      await simulateLoading(3000);
+      
+      // Add a new "pending" job to the list
+      const newJob: VideoJob = {
+        id: `video-${Date.now()}`,
+        status: "pending",
+        createdAt: new Date(),
+        user_id: MOCK_USER_ID // Use the mock user ID consistently
+      };
+      
+      setVideoJobs(prev => [newJob, ...prev]);
+      setIsGeneratingVideo(false);
+      
+      return;
+    }
+    
+    if (!actualUserId) { 
       setVideoGenerationError("Please select a user before creating a video.");
       return;
     }
@@ -385,113 +467,180 @@ const GeneratorsPage = () => {
     console.log("User selection is deprecated - using authenticated user ID instead");
   };
 
+  // Provide an option to toggle mock data (for development purposes)
+  const toggleMockData = () => {
+    // This function would only be useful in a real implementation
+    // You could implement a state toggle here if needed
+    console.log("Mock data toggle is not implemented");
+  };
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-background relative overflow-hidden">
+      {/* Animated background blobs */}
+      <div className="blob w-[600px] h-[600px] top-0 right-0 -z-10 opacity-5 fixed"></div>
+      <div className="blob-cyan w-[500px] h-[500px] bottom-0 left-0 -z-10 opacity-5 fixed"></div>
+      
+      {/* Navbar at the top */}
       <Navbar 
         selectedUserId={selectedUserId} 
         onUserChange={handleUserChange} 
       />
 
-      <div className="container py-6 max-w-7xl flex-1">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">AI Content Generator</h1>
-          <p className="text-muted-foreground">
-            Create amazing content using AI. Generate scripts, audio, images, and videos with ease.
-          </p>
-        </div>
-        
-        <Tabs defaultValue="script" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-5 mb-8">
-            <TabsTrigger value="script" className="flex items-center gap-2">
-              <FileText size={18} />
-              <span className="hidden sm:inline">Script</span>
-            </TabsTrigger>
-            <TabsTrigger value="audio" className="flex items-center gap-2">
-              <Volume2 size={18} />
-              <span className="hidden sm:inline">Audio</span>
-            </TabsTrigger>
-            <TabsTrigger value="image" className="flex items-center gap-2">
-              <Image size={18} />
-              <span className="hidden sm:inline">Image</span>
-            </TabsTrigger>
-            <TabsTrigger value="video" className="flex items-center gap-2">
-              <Film size={18} />
-              <span className="hidden sm:inline">Video</span>
-            </TabsTrigger>
-            <TabsTrigger value="gdrive" className="flex items-center gap-2">
-              <Database size={18} />
-              <span className="hidden sm:inline">Google Drive</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="script" className="mt-0">
-            <ScriptGenerator 
-              onScriptSectionsChange={handleScriptSectionsUpdate} 
-              onFullScriptChange={handleFullScriptUpdate}
-              currentScriptSections={sharedScriptSections}
-              currentFullScript={sharedFullScriptMarkdown}
-            />
-          </TabsContent>
-          
-          <TabsContent value="audio" className="mt-0">
-            <AudioGenerator 
-              initialText={sharedFullScriptCleaned}
-              generatedAudioUrl={generatedAudioUrl}
-              isGeneratingAudio={isGeneratingAudio}
-              audioGenerationError={audioGenerationError}
-              onAudioGenerated={handleAudioGenerated}
-              onSubtitlesGenerated={handleSubtitlesGenerated}
-              setIsGeneratingAudio={setIsGeneratingAudio}
-              setAudioGenerationError={setAudioGenerationError}
-              selectedUserId={actualUserId}
-            />
-          </TabsContent>
-          
-          <TabsContent value="image" className="mt-0">
-            <ImageGenerator 
-              scriptPrompts={imagePrompts}
-              scriptSections={sharedScriptSections}
-              numberOfImagesPerPrompt={defaultNumberOfImagesPerSectionPrompt}
-              isLoadingImages={isGeneratingImages}
-              imageSets={generatedImageSetsList}
-              generationError={imageGenerationError}
-              generatingInfo={currentImageGeneratingInfo}
-              onStartGenerationRequest={handleStartImageGeneration}
-              onRegenerateImages={handleRegenerateImages}
-              onThumbnailGenerated={handleThumbnailGenerated}
-            />
-          </TabsContent>
-          
-          <TabsContent value="video" className="mt-0">
-            <VideoGenerator 
-              availableImageSets={generatedImageSetsList}
-              isGeneratingVideo={isGeneratingVideo}
-              generatedVideoUrl={generatedVideoUrl}
-              videoGenerationError={videoGenerationError}
-              onStartVideoCreation={handleStartVideoCreation}
-              thumbnailUrl={generatedThumbnailUrl}
-            />
-          </TabsContent>
-          <TabsContent value="gdrive" className="mt-0">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center space-x-2">
-                  <Cloud size={24} className="text-blue-500" />
-                  <CardTitle>Google Drive</CardTitle>
+      {/* Main content with sidebar and content area */}
+      <div className="flex flex-1 relative">
+        {/* Left Side Navigation */}
+        <div className="w-20 md:w-64 h-[calc(100vh-64px)] sticky top-16 pt-4 pb-8 pl-2 pr-2 md:pr-4 flex flex-col space-y-4 z-20">
+          <div className="h-full flex flex-col space-y-4 futuristic-scrollbar overflow-y-auto backdrop-blur-sm bg-opacity-10 bg-blue-900 border border-blue-500/20 rounded-2xl p-3 shadow-glow-blue">
+            <button 
+              onClick={() => setActiveTab("script")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "script" ? "bg-blue-600/20 text-blue-300 shadow-glow-blue" : "hover:bg-blue-900/30"}`}
+            >
+              <FileText size={24} className={activeTab === "script" ? "text-blue-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "script" ? "glow-text" : "text-muted-foreground"}`}>Script</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab("audio")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "audio" ? "bg-cyan-600/20 text-cyan-300 shadow-glow-cyan" : "hover:bg-blue-900/30"}`}
+            >
+              <Volume2 size={24} className={activeTab === "audio" ? "text-cyan-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "audio" ? "glow-text-cyan" : "text-muted-foreground"}`}>Audio</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab("image")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "image" ? "bg-purple-600/20 text-purple-300 shadow-glow-purple" : "hover:bg-blue-900/30"}`}
+            >
+              <Image size={24} className={activeTab === "image" ? "text-purple-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "image" ? "glow-text-purple" : "text-muted-foreground"}`}>Image</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab("video")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "video" ? "bg-indigo-600/20 text-indigo-300 shadow-glow-blue" : "hover:bg-blue-900/30"}`}
+            >
+              <Film size={24} className={activeTab === "video" ? "text-indigo-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "video" ? "text-indigo-300 text-glow" : "text-muted-foreground"}`}>Video</span>
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab("gdrive")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "gdrive" ? "bg-teal-600/20 text-teal-300 shadow-glow-cyan" : "hover:bg-blue-900/30"}`}
+            >
+              <Database size={24} className={activeTab === "gdrive" ? "text-teal-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-teal-300 text-glow" : "text-muted-foreground"}`}>Drive</span>
+            </button>
+            
+            {/* Only show in development mode */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-auto pt-4 text-center">
+                <div className="text-xs text-muted-foreground mb-2">Development</div>
+                <div className="flex items-center justify-center gap-2 px-2">
+                  <span className="text-xs text-muted-foreground">Mock data:</span>
+                  <div className={`w-8 h-4 rounded-full ${USE_MOCK_DATA ? 'bg-green-500' : 'bg-gray-700'} relative`}>
+                    <div className={`absolute w-3 h-3 rounded-full bg-white top-0.5 transition-all ${USE_MOCK_DATA ? 'right-0.5' : 'left-0.5'}`}></div>
+                  </div>
                 </div>
-                <CardDescription>Select files or folders from your Google Drive.</CardDescription> 
-              </CardHeader>
-              <CardContent>
-                <GoogleDriveComponent />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <VideoStatus jobs={videoJobs} isLoading={isLoadingJobs} />
+        {/* Main Content */}
+        <div className="flex-1 py-6 px-4 md:px-6 relative z-10 animate-fadeIn">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-2 gradient-text flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-blue-400" />
+                AI Content Generator
+              </h1>
+              <p className="text-muted-foreground">
+                Create amazing content using AI. Generate scripts, audio, images, and videos with ease.
+              </p>
+            </div>
+            
+            <div className="w-full">
+              {activeTab === "script" && (
+                <div className="animate-fadeIn">
+                  <ScriptGenerator 
+                    onScriptSectionsChange={handleScriptSectionsUpdate} 
+                    onFullScriptChange={handleFullScriptUpdate}
+                    currentScriptSections={sharedScriptSections}
+                    currentFullScript={sharedFullScriptMarkdown}
+                  />
+                </div>
+              )}
+              
+              {activeTab === "audio" && (
+                <div className="animate-fadeIn">
+                  <AudioGenerator 
+                    initialText={sharedFullScriptCleaned}
+                    generatedAudioUrl={generatedAudioUrl}
+                    isGeneratingAudio={isGeneratingAudio}
+                    audioGenerationError={audioGenerationError}
+                    onAudioGenerated={handleAudioGenerated}
+                    onSubtitlesGenerated={handleSubtitlesGenerated}
+                    setIsGeneratingAudio={setIsGeneratingAudio}
+                    setAudioGenerationError={setAudioGenerationError}
+                    selectedUserId={actualUserId}
+                  />
+                </div>
+              )}
+              
+              {activeTab === "image" && (
+                <div className="animate-fadeIn">
+                  <ImageGenerator 
+                    scriptPrompts={imagePrompts}
+                    scriptSections={sharedScriptSections}
+                    numberOfImagesPerPrompt={defaultNumberOfImagesPerSectionPrompt}
+                    isLoadingImages={isGeneratingImages}
+                    imageSets={generatedImageSetsList}
+                    generationError={imageGenerationError}
+                    generatingInfo={currentImageGeneratingInfo}
+                    onStartGenerationRequest={handleStartImageGeneration}
+                    onRegenerateImages={handleRegenerateImages}
+                    onThumbnailGenerated={handleThumbnailGenerated}
+                  />
+                </div>
+              )}
+              
+              {activeTab === "video" && (
+                <div className="animate-fadeIn">
+                  <VideoGenerator 
+                    availableImageSets={generatedImageSetsList}
+                    isGeneratingVideo={isGeneratingVideo}
+                    generatedVideoUrl={generatedVideoUrl}
+                    videoGenerationError={videoGenerationError}
+                    onStartVideoCreation={handleStartVideoCreation}
+                    thumbnailUrl={generatedThumbnailUrl}
+                  />
+                </div>
+              )}
+              
+              {activeTab === "gdrive" && (
+                <div className="animate-fadeIn">
+                  <Card className="futuristic-card shadow-glow-cyan">
+                    <CardHeader>
+                      <div className="flex items-center space-x-2">
+                        <Cloud size={24} className="text-cyan-400" />
+                        <CardTitle className="gradient-text">Google Drive</CardTitle>
+                      </div>
+                      <CardDescription>Select files or folders from your Google Drive.</CardDescription> 
+                    </CardHeader>
+                    <CardContent>
+                      <GoogleDriveComponent />
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              <VideoStatus jobs={videoJobs} isLoading={isLoadingJobs} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default GeneratorsPage;
+export default GeneratorsPage; 
