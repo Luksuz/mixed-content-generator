@@ -1,6 +1,9 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+"use server"
+
+import { createClient as createAdminClient } from '@/utils/supabase/server';
 import fs from 'fs/promises';
 import { Buffer } from 'buffer'; // Ensure Buffer is imported
+import { SupabaseClient } from '@supabase/supabase-js';
 
 // Ensure these environment variables are set in your .env.local or environment
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,13 +13,7 @@ const supabaseBucket = process.env.SUPABASE_BUCKET_NAME || 'generated_media'; //
 let supabaseAdmin: SupabaseClient | null = null;
 
 if (supabaseUrl && supabaseServiceKey) {
-  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      // Required for service_role key. See https://supabase.com/docs/reference/javascript/initializing#generating-types
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+  supabaseAdmin = createAdminClient();
   console.log("Supabase Admin client initialized.");
 } else {
   console.error("❌ Supabase URL or Service Role Key environment variables are missing. Supabase functionalities will be unavailable.");
@@ -240,5 +237,43 @@ export async function getAudioDuration(audioUrl: string): Promise<number | null>
     // Fallback if ffprobe fails or is not available
     console.log("Using default duration as fallback");
     return 300; // Default to 5 minutes
+  }
+} 
+
+/**
+ * Deletes a user from Supabase authentication using admin privileges.
+ * IMPORTANT: This function is intended for use in a secure server-side Node.js environment
+ * as it uses the supabaseAdmin client initialized with the service role key.
+ *
+ * @param userId The UUID of the user to delete from auth.users.
+ * @returns An object indicating success or failure, with an error message if applicable.
+ */
+export async function deleteSupabaseUser(userId: string): Promise<{ success: boolean; error?: string; data?: any }> {
+  if (!supabaseAdmin) {
+    console.error("Supabase Admin client is not initialized. Cannot delete user.");
+    return { success: false, error: "Supabase Admin client not initialized." };
+  }
+
+  if (!userId) {
+    console.error("User ID is required to delete a user.");
+    return { success: false, error: "User ID is required." };
+  }
+
+  console.log(`Attempting to delete user with ID: ${userId} using admin client.`);
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (error) {
+      console.error(`Supabase error deleting user ${userId}:`, error.message);
+      return { success: false, error: error.message, data };
+    }
+
+    console.log(`✅ Successfully deleted user ${userId} from Supabase auth.`, data);
+    return { success: true, data };
+
+  } catch (err: any) {
+    console.error(`Unexpected error during Supabase user deletion for ${userId}:`, err.message || err);
+    return { success: false, error: err.message || "An unexpected error occurred during user deletion." };
   }
 } 

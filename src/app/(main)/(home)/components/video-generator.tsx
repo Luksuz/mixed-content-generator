@@ -17,8 +17,6 @@ interface VideoGeneratorProps {
   thumbnailUrl?: string | null;
 }
 
-const MAX_SELECTED_IMAGES = 20;
-
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   availableImageSets,
   isGeneratingVideo,
@@ -41,12 +39,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
       if (prevSelected.includes(imageUrl)) {
         return prevSelected.filter(url => url !== imageUrl);
       } else {
-        if (prevSelected.length < MAX_SELECTED_IMAGES) {
-          return [...prevSelected, imageUrl];
-        } else {
-          setLocalError(`You can select a maximum of ${MAX_SELECTED_IMAGES} images.`);
-          return prevSelected;
-        }
+        return [...prevSelected, imageUrl];
       }
     });
   };
@@ -55,7 +48,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
     if (selectedImageUrls.length === 0) {
       setLocalError("Please select at least one image to create a video.");
       return;
-        }
+    }
     setLocalError(null);
     setShowSuccessMessage(false);
     await onStartVideoCreation(selectedImageUrls);
@@ -142,16 +135,39 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
           )}
 
           <div>
-            <Label className="text-lg font-semibold">Select Images (up to {MAX_SELECTED_IMAGES})</Label>
+            <Label className="text-lg font-semibold">Select Images</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              You have selected {selectedImageUrls.length} / {MAX_SELECTED_IMAGES} images.
+              You have selected {selectedImageUrls.length} {selectedImageUrls.length === 1 ? 'image' : 'images'}.
+              {allImageUrls.length > 0 && (
+                <span className="ml-2">
+                  {selectedImageUrls.length < allImageUrls.length && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedImageUrls([...allImageUrls])}
+                      className="mr-2"
+                    >
+                      Select All
+                    </Button>
+                  )}
+                  {selectedImageUrls.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedImageUrls([])}
+                    >
+                      Unselect All
+                    </Button>
+                  )}
+                </span>
+              )}
             </p>
             {allImageUrls.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg text-muted-foreground">
                 <ImageOff size={48} className="mb-4" />
                 <p className="text-center">No images available to select.</p>
                 <p className="text-center text-sm">Please generate some images in the Image tab first.</p>
-        </div>
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 max-h-[600px] overflow-y-auto p-2 border rounded-md">
                 {allImageUrls.map((imageUrl, index) => (
@@ -171,18 +187,18 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor" className="w-4 h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-          </div>
+                      </div>
                     )}
-          </div>
+                  </div>
                 ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
           <Button
             className="w-full"
             onClick={handleConfirmAndCreateVideo}
-            disabled={isGeneratingVideo || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
+            disabled={isGeneratingVideo || selectedImageUrls.length === 0}
           >
             {isGeneratingVideo ? (
               <>
@@ -192,7 +208,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
             ) : (
               "Confirm and Create Video"
             )}
-                  </Button>
+          </Button>
         </CardContent>
       </Card>
     </div>

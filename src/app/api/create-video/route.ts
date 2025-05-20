@@ -30,6 +30,11 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateVideoRequestBody = await request.json();
     const { imageUrls, audioUrl, subtitlesUrl, userId, thumbnailUrl } = body;
+    
+    console.log(`📋 Subtitle configuration:
+      - Subtitles URL provided: ${subtitlesUrl ? 'YES' : 'NO'}
+      - Subtitles URL: ${subtitlesUrl || 'None'}
+    `);
 
     // Validate inputs
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest) {
     // Create multiple clips for zoom in/out effect since Shotstack doesn't have a direct "zoomInOut" effect
     // We'll create alternating zoom in and zoom out clips with faster cycles
     const zoomClips = [];
-    const zoomDuration = 20; // Each zoom cycle lasts 10 seconds
+    const zoomDuration = 15; // Each zoom cycle lasts 10 seconds
     const numZoomCycles = Math.ceil(secondPartDuration / (zoomDuration * 2));
     
     for (let i = 0; i < numZoomCycles; i++) {
@@ -142,11 +147,18 @@ export async function POST(request: NextRequest) {
           {
             asset: {
               type: "caption",
-              src: subtitlesUrl
+              src: subtitlesUrl,
+              font: {
+                size: 70,
+              },
+              background: {
+                padding: 15,
+              },
             },
             start: 0,
             length: totalDuration,
-            position: "bottom"
+            position: "bottom",
+            
           }
         ]
       };
@@ -163,7 +175,7 @@ export async function POST(request: NextRequest) {
           },
           start: index * imageDuration,
           length: imageDuration,
-          effect: index % 2 === 0 ? "zoomIn" : "slideLeft", // Example effects
+          effect: "zoomIn", // Always use zoomIn for first minute
           fit: "cover"
         })),
         ...zoomClips // Last image zoom in/out
@@ -207,9 +219,14 @@ export async function POST(request: NextRequest) {
       tracks.unshift(overlayTrack);
     }
     
+    // Log the track structure for debugging
+    console.log('📊 Final track structure:');
+    tracks.forEach((track, index) => {
+      const assetType = track.clips[0]?.asset?.type || 'unknown';
+      console.log(`  Track ${index}: ${assetType}`);
+    });
+
     const timeline: any = {
-      // Removed global soundtrack based on user's example payload structure
-      // background: "#000000", // Assuming you want a black background, or remove for default
       tracks: tracks
     };
 
@@ -225,11 +242,14 @@ export async function POST(request: NextRequest) {
       callback: process.env.SHOTSTACK_CALLBACK_URL
     };
 
-    console.log("Sending video creation request to Shotstack API");
+    console.log(JSON.stringify(shotstackPayload, null, 2));
 
-    // Send request to Shotstack
-
-    console.log("Shotstack payload:", JSON.stringify(shotstackPayload, null, 2));
+    console.log("📤 Sending Shotstack API request with payload summary:");
+    console.log(`- Total tracks: ${tracks.length}`);
+    console.log(`- Images: ${imageUrls.length}`);
+    console.log(`- Audio: ${audioUrl ? 'YES' : 'NO'}`);
+    console.log(`- Subtitles: ${subtitlesUrl ? 'Manual file' : 'Automatic'}`);
+    
     const shotstackResponse = await fetch(`${SHOTSTACK_ENDPOINT}/render`, {
       method: "POST",
       headers: {

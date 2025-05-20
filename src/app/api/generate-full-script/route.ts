@@ -71,17 +71,26 @@ ${additionalInstructions}
 
 Based on the WRITING INSTRUCTIONS, generate ONLY the text that is to be spoken aloud by a narrator for this section of the script.
 Your response must exclusively contain the narrative and dialogue that will be voiced.
-Do NOT include:
+
+IMPORTANT FORMATTING RULES:
+1. Do NOT begin your script with the title, section name, or any form of header/title text.
+2. Do NOT include any greetings like "Hi!", "Hello", or similar phrases at the beginning.
+3. Start directly with the narrative content - for example, begin with a description of a scene or action.
+4. Do NOT repeat the title or section name within the content.
+
+CONTENT TO EXCLUDE:
+- Any form of title, header, or section name
+- Greetings or introductory phrases that aren't part of the narrative
 - Scene headings (e.g., "INT. CAFE - DAY")
 - Character names before dialogue (unless the narrator is quoting someone like "John said: 'Hello'")
 - Parentheticals or action descriptions (e.g., "(smiles)", "[He walks to the window]")
-- Any visual descriptions or camera directions.
-- Any form of commentary or notes about the script itself.
+- Any visual descriptions or camera directions
+- Any form of commentary or notes about the script itself
 
 The WRITING INSTRUCTIONS already contain guidance on plot, character interactions, thematic elements, and specific Call to Actions (CTAs) that the narrator must say. Your task is to transform these instructions into a polished, narratable script.
 
 Format the spoken text using Markdown where appropriate for emphasis or stylistic representation of speech (e.g., **bold** for emphasis, *italics* for thoughts if narrated).
-Maintain a word count of approximately 500-800 words for this section, consisting purely of speakable text.
+Maintain a word count of at least 1000 words for this section, consisting purely of speakable text.
 `;
 
         // Generate content for this section

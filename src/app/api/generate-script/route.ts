@@ -116,10 +116,17 @@ export async function POST(request: Request) {
     2.  Detailed 'writingInstructions' (150-250 words for main content sections) that explain what should happen in that section, including plot developments, character interactions, and thematic elements. These instructions are for the narrator.
     3.  An 'image_generation_prompt' (a concise phrase or sentence, around 10-25 words) that describes the key visual elements of the scene for an AI image generator. This prompt should be purely descriptive of the visuals, suitable for direct use in image generation, and must avoid any taboo, sensitive, or controversial topics.
 
+    IMPORTANT GUIDELINES FOR WRITING INSTRUCTIONS:
+    1. Do NOT include instructions for the narrator to begin with greetings like "Hi", "Hello", etc.
+    2. Do NOT instruct the narrator to state or repeat the title or section names.
+    3. Focus on the narrative flow and content rather than introductory elements.
+    4. The narrator should begin directly with the story content, not with meta-references to the story itself.
+    5. Ensure the story can flow naturally without headers, titles, or section markers.
+
     IMPORTANT INSTRUCTIONS FOR NARRATOR CALLS TO ACTION (CTAs):
     You MUST incorporate the following CTAs directly into the 'writingInstructions' of the appropriate sections. These CTAs are spoken by the narrator. Ensure these CTAs are integrated naturally within the narrative flow where specified.
 
-    1.  **CTA 1 (After Intro):** ${startSection <= 1 && endSection >= 2 ? "In the 'writingInstructions' for the section that immediately follows the initial introduction (the intro itself should be about 20-40 seconds of narration, so place this CTA in the next natural pause or transition within the first few minutes), include a paraphrased version of: \"Before we jump back in, tell us where you're tuning in from, and if this story touches you, make sure you're subscribed—because tomorrow, I've saved something extra special for you!\" Try to vary the phrasing of this CTA if you were to generate multiple scripts." : "You do not need to include this CTA in this batch of sections."}
+    1.  **CTA 1 (After First Hook):** ${startSection <= 1 && endSection >= 2 ? "In the 'writingInstructions' for the FIRST SECTION, immediately after the initial hook (typically 15-20 seconds into the narration), include this EXACT text: \"Before we jump back in, tell us where you're tuning in from, and if this story touches you, make sure you're subscribed—because tomorrow, I've saved something extra special for you!\" This CTA must be included early in the first section, right after capturing the audience's attention." : "You do not need to include this CTA in this batch of sections."}
     
     2.  **CTA 2 (Mid-Script ~10 minutes / ~1500 words):** ${(wordCount >= 1500) && (startSection <= Math.floor(numSections/3) && endSection >= Math.floor(numSections/3)) ? "For scripts long enough to have a 10-minute mark (around 1500 words of story content), embed this CTA into the 'writingInstructions' of a suitable mid-point section: \"Preparing and narrating this story took us a lot of time, so if you are enjoying it, subscribe to our channel, it means a lot to us! Now back to the story.\"" : "You do not need to include this CTA in this batch of sections."}
     

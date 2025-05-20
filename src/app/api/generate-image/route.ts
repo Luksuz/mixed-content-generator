@@ -116,6 +116,8 @@ export async function POST(request: NextRequest) {
                             size: "1536x1024",
                         });
 
+                        console.log(`OpenAI response received. Response data length: ${JSON.stringify(response, null, 2)}`);
+
                         if (response.data?.[0]?.b64_json) {
                             const imageBuffer = Buffer.from(response.data[0].b64_json, 'base64');
                             const destinationPath = `user_${userId}/images/${uuidv4()}.png`;

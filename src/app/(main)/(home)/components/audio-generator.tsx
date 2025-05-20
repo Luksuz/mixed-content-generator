@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Placeholder types (as the original files are missing)
-type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Removed "google-tts"
+type AudioProvider = "elevenlabs" | "minimax" | "openai" | "fish-audio"; // Removed "google-tts"
 
 interface VoiceInfo {
   value: string;
@@ -39,12 +39,14 @@ interface GenerateAudioRequestBody {
   fishAudioModel?: string;
   elevenLabsVoiceId?: string;
   elevenLabsModelId?: string;
+  languageCode?: string; // Add language code for ElevenLabs
 }
 
 interface GenerateAudioResponse {
   audioUrl?: string;
   error?: string;
   details?: string;
+  subtitlesUrl?: string;
 }
 
 
@@ -65,11 +67,61 @@ interface AudioGeneratorProps {
   isGeneratingAudio: boolean;
   audioGenerationError: string | null;
   onAudioGenerated: (url: string | null) => void;
+  // Uncomment subtitle handling from props
   onSubtitlesGenerated: (url: string | null) => void;
   setIsGeneratingAudio: (isGenerating: boolean) => void;
   setAudioGenerationError: (error: string | null) => void;
   selectedUserId?: string;
 }
+
+// Add language options interface
+interface LanguageOption {
+  code: string;
+  name: string;
+}
+
+// Add the language options list
+const elevenlabsLanguageOptions: LanguageOption[] = [
+  { code: "en", name: "English (USA, UK, Australia, Canada)" },
+  { code: "ja", name: "Japanese" },
+  { code: "zh", name: "Chinese" },
+  { code: "de", name: "German" },
+  { code: "hi", name: "Hindi" },
+  { code: "fr", name: "French (France, Canada)" },
+  { code: "ko", name: "Korean" },
+  { code: "pt", name: "Portuguese (Brazil, Portugal)" },
+  { code: "it", name: "Italian" },
+  { code: "es", name: "Spanish (Spain, Mexico)" },
+  { code: "id", name: "Indonesian" },
+  { code: "nl", name: "Dutch" },
+  { code: "tr", name: "Turkish" },
+  { code: "fil", name: "Filipino" },
+  { code: "pl", name: "Polish" },
+  { code: "sv", name: "Swedish" },
+  { code: "bg", name: "Bulgarian" },
+  { code: "ro", name: "Romanian" },
+  { code: "ar", name: "Arabic (Saudi Arabia, UAE)" },
+  { code: "cs", name: "Czech" },
+  { code: "el", name: "Greek" },
+  { code: "fi", name: "Finnish" },
+  { code: "hr", name: "Croatian" },
+  { code: "ms", name: "Malay" },
+  { code: "sk", name: "Slovak" },
+  { code: "da", name: "Danish" },
+  { code: "ta", name: "Tamil" },
+  { code: "uk", name: "Ukrainian" },
+  { code: "ru", name: "Russian" },
+  // Additional languages for eleven_flash_v2_5 model
+  { code: "hu", name: "Hungarian" },
+  { code: "no", name: "Norwegian" },
+  { code: "vi", name: "Vietnamese" }
+];
+
+// Add ElevenLabs model options
+const elevenLabsModelOptions = [
+  { id: "eleven_multilingual_v2", name: "Multilingual V2 (29 languages, high quality)" },
+  { id: "eleven_flash_v2_5", name: "Flash V2.5 (32 languages, low latency)" }
+];
 
 const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   initialText,
@@ -77,6 +129,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   isGeneratingAudio,
   audioGenerationError,
   onAudioGenerated,
+  // Uncomment subtitle props in component definition
   onSubtitlesGenerated,
   setIsGeneratingAudio,
   setAudioGenerationError,
@@ -88,6 +141,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
+  // Uncomment subtitle state but keep it hidden from the UI
   // State for subtitle generation
   const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState<boolean>(false);
   const [subtitleGenerationError, setSubtitleGenerationError] = useState<string | null>(null);
@@ -100,7 +154,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [fishAudioVoiceId, setFishAudioVoiceId] = useState("54e3a85ac9594ffa83264b8a494b901b");
   const [fishAudioModel, setFishAudioModel] = useState("speech-1.6");
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("UgBBYS2sOqTuMpoF3BR0");
-  const [elevenLabsModelId, setElevenLabsModelId] = useState("eleven_multilingual_v2");
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState<string>("en");
+  const [elevenLabsModelId, setElevenLabsModelId] = useState<string>("eleven_multilingual_v2");
   const [elevenLabsVoicesList, setElevenLabsVoicesList] = useState<VoiceOption[]>([]);
   const [isLoadingElevenLabsVoices, setIsLoadingElevenLabsVoices] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -181,6 +236,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     setIsGeneratingAudio(true);
     setAudioGenerationError(null);
     onAudioGenerated(null);
+    
+    // Uncomment subtitle reset
     onSubtitlesGenerated(null);
     setGeneratedSubtitlesUrlLocal(null);
     setSubtitleGenerationError(null);
@@ -193,7 +250,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         userId: selectedUserId || 'unknown_user',
       };
       // Add provider-specific fields if necessary
-      if (selectedProvider === 'minimax-tts') {
+      if (selectedProvider === 'minimax') {
         requestBody.model = minimaxModel; // Example, ensure minimaxModel state is set
       } else if (selectedProvider === 'fish-audio') {
         requestBody.fishAudioVoiceId = fishAudioVoiceId;
@@ -201,6 +258,10 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
       } else if (selectedProvider === 'elevenlabs') {
         requestBody.elevenLabsVoiceId = elevenLabsVoiceId;
         requestBody.elevenLabsModelId = elevenLabsModelId;
+        // Only add languageCode if using Flash model
+        if (elevenLabsModelId === "eleven_flash_v2_5") {
+          requestBody.languageCode = selectedLanguageCode;
+        }
       }
 
 
@@ -218,7 +279,13 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
 
       if (data.audioUrl) {
         onAudioGenerated(data.audioUrl); // This will trigger the useEffect to set src
-        handleGenerateSubtitles(data.audioUrl);
+        
+        // Process the subtitles URL if it exists in the response
+        if (data.subtitlesUrl) {
+          console.log("Received subtitles URL from audio generation:", data.subtitlesUrl);
+          setGeneratedSubtitlesUrlLocal(data.subtitlesUrl);
+          onSubtitlesGenerated(data.subtitlesUrl);
+        }
       } else {
         throw new Error("Audio URL not found in response");
       }
@@ -230,6 +297,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     }
   };
 
+  // Uncomment the subtitle generation function, but we'll make it hidden
+  // This function should still exist for handling manual subtitle generation if needed
   const handleGenerateSubtitles = async (audioUrl: string) => {
     if (!selectedUserId) {
         console.warn("Cannot generate subtitles without a selected user ID.");
@@ -307,7 +376,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         return elevenLabsVoicesList.length > 0 
             ? elevenLabsVoicesList.map((v: VoiceOption): VoiceInfo => ({ value: v.id, label: v.name })) 
             : defaultElevenLabsVoices.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
-      case "minimax-tts":
+      case "minimax":
         return minimaxTTSVoices;
       case "openai":
          return voiceOptions.openai.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
@@ -426,6 +495,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             value={textToConvert}
             onChange={(e) => setTextToConvert(e.target.value)}
             rows={6}
+            // Update to include subtitle generation state
             disabled={isGeneratingAudio || isGeneratingSubtitles}
           />
         </div>
@@ -437,11 +507,12 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               id="audio-provider-select"
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value as AudioProvider)}
+              // Update to include subtitle generation state
               disabled={isGeneratingAudio || isGeneratingSubtitles}
               className="w-full p-2 border rounded mt-1 bg-background text-foreground"
             >
               <option value="elevenlabs">ElevenLabs</option>
-              <option value="minimax-tts">Minimax TTS</option>
+              <option value="minimax">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
               {/* Add other providers as needed */}
@@ -453,6 +524,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               id="voice-selection-select"
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
+              // Update to include subtitle generation state
               disabled={isGeneratingAudio || isGeneratingSubtitles || getVoiceOptions().length === 0}
               className="w-full p-2 border rounded mt-1 bg-background text-foreground"
             >
@@ -461,15 +533,53 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               ))}
             </select>
           </div>
+          
+          {/* Add these new UI elements */}
+          {selectedProvider === "elevenlabs" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="elevenlabs-model-select">ElevenLabs Model</Label>
+                <select
+                  id="elevenlabs-model-select"
+                  value={elevenLabsModelId}
+                  onChange={(e) => setElevenLabsModelId(e.target.value)}
+                  disabled={isGeneratingAudio || isGeneratingSubtitles}
+                  className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+                >
+                  {elevenLabsModelOptions.map((model) => (
+                    <option key={model.id} value={model.id}>{model.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {elevenLabsModelId === "eleven_flash_v2_5" && (
+                <div className="space-y-2">
+                  <Label htmlFor="language-selection-select">Language</Label>
+                  <select
+                    id="language-selection-select"
+                    value={selectedLanguageCode}
+                    onChange={(e) => setSelectedLanguageCode(e.target.value)}
+                    disabled={isGeneratingAudio || isGeneratingSubtitles}
+                    className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+                  >
+                    {elevenlabsLanguageOptions.map((lang) => (
+                      <option key={lang.code} value={lang.code}>{lang.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <Button 
           onClick={handleGenerateAudio} 
+          // Update to include subtitle generation state
           disabled={isGeneratingAudio || isGeneratingSubtitles || !textToConvert.trim()}
           className="w-full"
         >
           {(isGeneratingAudio || isGeneratingSubtitles) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isGeneratingAudio ? "Generating Audio..." : isGeneratingSubtitles ? "Generating Subtitles..." : "Generate Audio & Subtitles"}
+          {isGeneratingAudio ? "Generating Audio..." : isGeneratingSubtitles ? "Processing..." : "Generate Audio"}
         </Button>
 
         {audioGenerationError && (
@@ -478,6 +588,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             <p>Audio Error: {audioGenerationError}</p>
           </div>
         )}
+        
         {subtitleGenerationError && (
           <div className="flex items-center text-red-500">
             <AlertCircle className="mr-2 h-4 w-4" />
@@ -486,7 +597,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         )}
       </CardContent>
 
-      {(generatedAudioUrl || generatedSubtitlesUrlLocal) && (
+      {generatedAudioUrl && (
         <CardFooter className="flex-col items-start space-y-4">
           {generatedAudioUrl && (
             <div className="w-full">
@@ -514,6 +625,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             </div>
           )}
 
+          {/* Subtitles UI remains commented out - we don't want to show this in the UI */}
+          {/*
           {isGeneratingSubtitles && (
             <div className="flex items-center text-muted-foreground w-full">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -529,6 +642,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                 </p>
             </div>
           )}
+          */}
         </CardFooter>
       )}
     </Card>

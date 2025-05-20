@@ -1,100 +1,151 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { User as SupabaseUser } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
-import { User, mapSupabaseUser } from "@/types/users";
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createClient } from '@/utils/supabase/client';
+import { User } from '@supabase/supabase-js';
+
+interface Profile {
+  user_id: string;
+  is_admin: boolean | null;
+}
 
 interface AuthContextType {
-  user: SupabaseUser | null;
-  mappedUser: User | null;
+  user: User | null;
+  profile: Profile | null;
+  isAdmin: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{
-    error: string | null;
-    success: boolean;
-  }>;
+  signIn: () => Promise<void>; // Placeholder, adjust as needed for your auth flow
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [mappedUser, setMappedUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const checkUser = async () => {
+    const getSession = async () => {
       setIsLoading(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user || null);
-        setMappedUser(mapSupabaseUser(session?.user || null));
-      } catch (error) {
-        console.error("Error checking authentication:", error);
-        setUser(null);
-        setMappedUser(null);
-      } finally {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Error getting session:", sessionError.message);
         setIsLoading(false);
+        return;
       }
+
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('user_id, is_admin')
+            .eq('user_id', currentUser.id)
+            .single();
+
+            console.log("profileData", profileData);
+
+          if (profileError) {
+            console.error("Error fetching profile:", profileError.message);
+            // If profile doesn't exist, create one
+            if (profileError.code === 'PGRST116') { // PGRST116: "Searched for one row, but found 0"
+              const { data: newProfile, error: insertError } = await supabase
+                .from('profiles')
+                .insert({ user_id: currentUser.id, is_admin: false }) // Default new users to not be admins
+                .select('user_id, is_admin')
+                .single();
+
+              if (insertError) {
+                console.error("Error creating profile:", insertError.message);
+              } else if (newProfile) {
+                setProfile(newProfile as Profile);
+                setIsAdmin(newProfile.is_admin || false);
+              }
+            }
+          } else if (profileData) {
+            setProfile(profileData as Profile);
+            setIsAdmin(profileData.is_admin || false);
+          }
+        } catch (e) {
+          console.error("An unexpected error occurred fetching profile:", e);
+        }
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
+      }
+      setIsLoading(false);
     };
 
-    checkUser();
+    getSession();
 
-    // Set up auth listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-        setMappedUser(mapSupabaseUser(session?.user || null));
-        router.refresh();
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setIsLoading(true);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+
+      if (currentUser) {
+         try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('user_id, is_admin')
+            .eq('user_id', currentUser.id)
+            .single();
+
+          if (profileError) {
+             console.error("Auth listener: Error fetching profile:", profileError.message);
+             // Potentially create profile if not exists, similar to above
+          } else if (profileData) {
+            setProfile(profileData as Profile);
+            setIsAdmin(profileData.is_admin || false);
+          }
+        } catch (e) {
+          console.error("Auth listener: An unexpected error occurred fetching profile:", e);
+        }
+      } else {
+        setProfile(null);
+        setIsAdmin(false);
       }
-    );
+      setIsLoading(false);
+    });
 
     return () => {
-      subscription.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
-  }, [router, supabase]);
+  }, [supabase]);
 
-  // Sign in function
-  const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        return { error: error.message, success: false };
-      }
-
-      router.push("/");
-      return { error: null, success: true };
-    } catch (error: any) {
-      return { error: error.message || "Sign-in failed", success: false };
-    }
+  const signIn = async () => {
+    // Implement your sign-in logic, e.g., redirecting to Supabase OAuth
+    // For simplicity, this is a placeholder.
+    // await supabase.auth.signInWithOAuth({ provider: 'google' });
+    console.log("Sign in function called");
   };
 
-  // Sign out function
   const signOut = async () => {
+    setIsLoading(true);
     await supabase.auth.signOut();
-    router.push("/login");
+    setUser(null);
+    setProfile(null);
+    setIsAdmin(false);
+    setIsLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, mappedUser, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, profile, isAdmin, isLoading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-} 
+}; 

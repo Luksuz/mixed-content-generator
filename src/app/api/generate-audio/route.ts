@@ -17,6 +17,8 @@ const GENERATED_AUDIO_DIR_NAME = "generated-audio"; // Main directory for final 
 const MAX_CHUNK_GENERATION_ATTEMPTS = 3; // 1 initial try + 2 retries
 const RETRY_DELAY_MS = 1500; // Delay between retry attempts
 
+const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
+
 // --- Initialize Clients & Config ---
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -117,7 +119,7 @@ async function generateSingleAudioChunk(
   baseTempDir: string
 ): Promise<string> {
   console.log(`🔊 [Chunk ${chunkIndex}] Generating for provider: ${provider}, length: ${textChunk.length}`);
-  const { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId } = providerArgs;
+  const { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode } = providerArgs;
   
   const tempFileName = `${provider}-${voice.replace(/\\s+/g, '_')}-chunk${chunkIndex}-${Date.now()}.mp3`;
   const tempFilePath = path.join(baseTempDir, tempFileName);
@@ -139,6 +141,7 @@ async function generateSingleAudioChunk(
         break;
 
       case "minimax":
+        console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${voice}, model=${model}`);
         const minimaxTTSModel = model || "speech-02-hd";
         console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${voice}, model=${minimaxTTSModel}`);
         const minimaxResponse = await fetch(`https://api.minimaxi.chat/v1/t2a_v2?GroupId=${MINIMAX_GROUP_ID}`, {
@@ -196,10 +199,21 @@ async function generateSingleAudioChunk(
         if (!elevenlabs) throw new Error("ElevenLabs client not initialized [Chunk ${chunkIndex}]");
         if (!elevenLabsVoiceId) throw new Error(`Missing elevenLabsVoiceId [Chunk ${chunkIndex}]`);
         const elModelId = elevenLabsModelId || "eleven_multilingual_v2";
-        console.log(`🧪 [Chunk ${chunkIndex}] ElevenLabs: voiceId=${elevenLabsVoiceId}, modelId=${elModelId}`);
-        const elAudioStream = await elevenlabs.textToSpeech.convert(elevenLabsVoiceId, {
-            text: textChunk, model_id: elModelId, output_format: "mp3_44100_128"
-        });
+        console.log(`🧪 [Chunk ${chunkIndex}] ElevenLabs: voiceId=${elevenLabsVoiceId}, modelId=${elModelId}${languageCode && elModelId === "eleven_flash_v2_5" ? `, language=${languageCode}` : ""}`);
+        
+        // Create the conversion parameters object
+        const elConversionParams: any = {
+          text: textChunk,
+          model_id: elModelId,
+          output_format: "mp3_44100_128"
+        };
+        
+        // Only add language_code for eleven_flash_v2_5 model
+        if (elModelId === "eleven_flash_v2_5" && languageCode) {
+          elConversionParams.language_code = languageCode;
+        }
+        
+        const elAudioStream = await elevenlabs.textToSpeech.convert(elevenLabsVoiceId, elConversionParams);
         const elStreamChunks: Uint8Array[] = [];
         for await (const streamChunk of elAudioStream) { elStreamChunks.push(streamChunk as Uint8Array); }
         const elConcatenatedUint8Array = new Uint8Array(elStreamChunks.reduce((acc, streamChunk) => acc + streamChunk.length, 0));
@@ -377,14 +391,147 @@ async function joinAudioChunks(
   });
 }
 
+/**
+ * Generates SRT subtitles from an audio file using Shotstack's ingest API
+ * @param audioUrl URL of the audio file to generate subtitles from
+ * @returns URL of the generated SRT file
+ */
+async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
+  console.log(`🔤 Generating subtitles for audio: ${audioUrl}`);
+  
+  // Step 1: Submit the request to generate transcription
+  const ingestResponse = await fetch("https://api.shotstack.io/ingest/stage/sources", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": SHOTSTACK_API_KEY
+    },
+    body: JSON.stringify({
+      url: audioUrl,
+      outputs: {
+        transcription: {
+          format: "srt"
+        }
+      }
+    })
+  });
+
+  if (!ingestResponse.ok) {
+    const errorData = await ingestResponse.json();
+    console.error("❌ Error submitting transcription request:", errorData);
+    throw new Error(`Failed to submit transcription request: ${ingestResponse.status} ${ingestResponse.statusText}`);
+  }
+
+  const ingestData = await ingestResponse.json();
+  console.log("📝 Transcription job submitted:", ingestData);
+  
+  if (!ingestData.data || !ingestData.data.id) {
+    throw new Error("No job ID received from transcription request");
+  }
+  
+  const jobId = ingestData.data.id;
+  console.log(`🆔 Transcription job ID: ${jobId}`);
+  
+  // Step 2: Poll for completion
+  let isComplete = false;
+  let subtitlesUrl = null;
+  let attempts = 0;
+  const maxAttempts = 30; // Maximum 30 attempts (2.5 minutes at 5-second intervals)
+  
+  console.log("⏳ Waiting for transcription to complete...");
+  
+  while (!isComplete && attempts < maxAttempts) {
+    attempts++;
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds between checks
+    
+    const statusResponse = await fetch(`https://api.shotstack.io/ingest/stage/sources/${jobId}`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "x-api-key": SHOTSTACK_API_KEY
+      }
+    });
+    
+    if (!statusResponse.ok) {
+      console.error(`❌ Error checking status (attempt ${attempts}):`, await statusResponse.text());
+      continue;
+    }
+    
+    const statusData = await statusResponse.json();
+    console.log(`🔍 Status check ${attempts}:`, statusData.data.attributes.status);
+    
+    if (statusData.data.attributes.status === "ready" && 
+        statusData.data.attributes.outputs.transcription.status === "ready") {
+      isComplete = true;
+      subtitlesUrl = statusData.data.attributes.outputs.transcription.url;
+      console.log("✅ Transcription complete!");
+      console.log(`🔗 Subtitles URL: ${subtitlesUrl}`);
+    } else if (statusData.data.attributes.status === "failed" || 
+               statusData.data.attributes.outputs.transcription.status === "failed") {
+      throw new Error("Transcription job failed");
+    }
+  }
+  
+  if (!isComplete) {
+    throw new Error(`Transcription not completed after ${maxAttempts} attempts`);
+  }
+  
+  return subtitlesUrl;
+}
+
+/**
+ * Downloads a subtitles file from URL and uploads it to Supabase
+ * @param subtitlesUrl URL of the SRT file to download
+ * @param userId User ID for Supabase path
+ * @returns URL of the uploaded SRT file in Supabase
+ */
+async function downloadAndSaveSubtitles(subtitlesUrl: string, userId: string): Promise<string> {
+  console.log(`📥 Downloading subtitles from: ${subtitlesUrl}`);
+  
+  try {
+    // Download the subtitles file
+    const response = await fetch(subtitlesUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download subtitles: ${response.status} ${response.statusText}`);
+    }
+    
+    // Get the content as text
+    const srtContent = await response.text();
+    const srtBuffer = Buffer.from(srtContent);
+    
+    // Create a unique filename in Supabase
+    const supabaseDestinationPath = `user_${userId}/subtitles/${uuidv4()}.srt`;
+    
+    // Upload to Supabase
+    const uploadedUrl = await uploadFileToSupabase(
+      srtBuffer,
+      supabaseDestinationPath,
+      'text/plain'
+    );
+    
+    if (!uploadedUrl) {
+      throw new Error("Failed to upload subtitles file to Supabase Storage");
+    }
+    
+    console.log(`✅ Subtitles saved to Supabase: ${uploadedUrl}`);
+    return uploadedUrl;
+  } catch (error) {
+    console.error(`❌ Error saving subtitles to Supabase:`, error);
+    throw error;
+  }
+}
 
 // --- Main POST Handler ---
 export async function POST(request: Request) {
   const requestBody = await request.json();
-  const { text, provider, voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, userId = "unknown_user" } = requestBody;
+  const { text, provider, voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, userId = "unknown_user" } = requestBody;
 
   console.log("📥 Received audio generation request (chunking & retry enabled)");
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, userId=${userId}, text length=${text?.length || 0}`);
+  // Log ElevenLabs specific details if applicable
+  if (provider === "elevenlabs") {
+    console.log(`🔊 ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
+  }
 
   if (!text || !provider || !voice) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -407,7 +554,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No text content to process after chunking." }, { status: 400 });
     }
 
-    const providerSpecificArgs = { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, provider };
+    const providerSpecificArgs = { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, provider };
     const successfulChunkPaths: (string | null)[] = new Array(textChunks.length).fill(null);
     let allChunksSucceeded = false;
 
@@ -506,11 +653,34 @@ export async function POST(request: Request) {
     // TODO: Calculate duration properly if needed, estimation is very rough
     audioDuration = Math.ceil(text.length / 15); 
 
+    // --- Add subtitle generation after successful audio generation ---
+    let subtitlesUrl = null;
+    let isSrtSaved = false;
+    
+    if (finalAudioSupabaseUrl) {
+      try {
+        console.log("🔤 Starting subtitle generation for the generated audio");
+        // Generate subtitles using Shotstack ingest API
+        const shotstackSubtitlesUrl = await generateSubtitlesFromAudio(finalAudioSupabaseUrl);
+        
+        // Download and save the subtitles to Supabase
+        subtitlesUrl = await downloadAndSaveSubtitles(shotstackSubtitlesUrl, userId);
+        isSrtSaved = true;
+        console.log(`✅ Subtitle generation complete: ${subtitlesUrl}`);
+      } catch (subtitleError: any) {
+        console.error("⚠️ Error generating subtitles:", subtitleError.message, subtitleError.stack);
+        // Continue with audio generation result even if subtitles fail
+        console.log("⚠️ Continuing with audio generation result despite subtitle error");
+      }
+    }
+
     console.log(`✅ Audio generated and uploaded successfully.`);
-    console.log(`📤 Sending response: audioUrl=${finalAudioSupabaseUrl}, estimated duration=${audioDuration}s`);
+    console.log(`📤 Sending response: audioUrl=${finalAudioSupabaseUrl}, subtitlesUrl=${subtitlesUrl}, estimated duration=${audioDuration}s`);
     return NextResponse.json({
       success: true,
       audioUrl: finalAudioSupabaseUrl,
+      subtitlesUrl: subtitlesUrl,
+      subtitlesGenerated: isSrtSaved,
       duration: audioDuration,
       provider,
       voice,

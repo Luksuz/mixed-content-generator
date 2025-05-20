@@ -1,4 +1,5 @@
 // Removed Navbar and Footer imports
+import { AuthProvider } from "@/contexts/AuthContext"; // Import AuthProvider
 
 export default function RootLayout({
   children,
@@ -6,8 +7,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // Render only children, Navbar is now in the page
-    // Footer can be added back here or inside the page if needed
-    <>{children}</>
+    // Wrap children with AuthProvider
+    <AuthProvider>
+      <>{children}</>
+    </AuthProvider>
   );
 }

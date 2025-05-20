@@ -106,8 +106,15 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       }
       
       const data = await response.json();
+      
       if (onScriptSectionsChange) {
         onScriptSectionsChange(data.sections);
+      }
+      
+      // After receiving outline sections, immediately generate the full script
+      // using the sections we just received instead of waiting for state update
+      if (data.sections && data.sections.length > 0) {
+        await generateFullScriptDirectly(data.sections);
       }
     } catch (error) {
       console.error("Error generating script outline:", error);
@@ -116,11 +123,11 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     }
   };
 
-  const handleGenerateFullScript = async () => {
-    if (currentScriptSections.length === 0) return;
-    
+  // Function to generate full script using the sections directly
+  const generateFullScriptDirectly = async (sections: ScriptSection[]) => {
     try {
       setIsGeneratingScript(true);
+      
       const response = await fetch("/api/generate-full-script", {
         method: "POST",
         headers: {
@@ -129,7 +136,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
         body: JSON.stringify({ 
           title, 
           theme, 
-          sections: currentScriptSections,
+          sections: sections,
           additionalPrompt,
           forbiddenWords
         }),
@@ -140,15 +147,78 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       }
       
       const data = await response.json();
-      if (onFullScriptChange) {
+      
+      // Process the script - clean it up for the audio component
+      if (data.scriptWithMarkdown) {
+        // Keep original for display
+        const scriptWithMarkdown = data.scriptWithMarkdown;
+        
+        // Create cleaned version for audio
+        let scriptCleaned = data.scriptCleaned || data.scriptWithMarkdown;
+        
+        // Enhanced cleaning process to eliminate all title and header patterns
+        
+        // Save original length for logging
+        const originalLength = scriptCleaned.length;
+        
+        // Remove exact title match
+        scriptCleaned = scriptCleaned.replace(new RegExp(`^(?:${title}|\\s*${title}\\s*)$`, 'im'), '');
+        
+        // Remove any title-looking text at the beginning (capitalized words)
+        scriptCleaned = scriptCleaned.replace(/^([A-Z][a-z]*\s*){1,7}$/m, '');
+        
+        // Remove common opening lines that might be title-related
+        scriptCleaned = scriptCleaned.replace(/^(Title:|Script:|Written by:).*$/gim, '');
+        
+        // Remove markdown headers
+        scriptCleaned = scriptCleaned.replace(/^#{1,6}\s+.*$/gm, '');
+        
+        // Remove chapter/section headers
+        scriptCleaned = scriptCleaned.replace(/^(?:Chapter|Section|Part)\s+\d+[\s:.-]*.*$/gim, '');
+        
+        // Remove ALL CAPS titles (expanded pattern)
+        scriptCleaned = scriptCleaned.replace(/^[A-Z][A-Z\s\d:,.!?-]{4,}$/gm, '');
+        
+        // Remove any remaining title lines
+        scriptCleaned = scriptCleaned.replace(new RegExp(`^\\s*${title}\\s*$`, 'gim'), '');
+        
+        // Remove common greetings at the beginning that shouldn't be in the script
+        scriptCleaned = scriptCleaned.replace(/^(Hi!|Hello!|Greetings!|Welcome!)\s*/i, '');
+        
+        // Handle specific pattern seen in the example
+        scriptCleaned = scriptCleaned.replace(/^A Chance Encounter\\nHi!\\n/i, '');
+        
+        // Clean up any title followed immediately by greeting
+        scriptCleaned = scriptCleaned.replace(/^[A-Z][a-zA-Z\s]+\\n(Hi!|Hello!)/i, '');
+        
+        // Remove excessive line breaks at the beginning
+        scriptCleaned = scriptCleaned.replace(/^\s*\n+/, '');
+        
+        // Clean up multiple line breaks
+        scriptCleaned = scriptCleaned.replace(/\n{2,}/g, '\n\n');
+        
+        // Trim whitespace
+        scriptCleaned = scriptCleaned.trim();
+        
+        console.log("Script cleaned for audio. Original length:", originalLength, 
+                    "Cleaned length:", scriptCleaned.length,
+                    "First 100 chars:", scriptCleaned.substring(0, 100));
+        
+        // Send to parent component
+        if (onFullScriptChange) {
+          onFullScriptChange({
+            scriptWithMarkdown: scriptWithMarkdown,
+            scriptCleaned: scriptCleaned
+          });
+        }
+      } else if (onFullScriptChange) {
         onFullScriptChange(data);
       }
       
-      // Set the word count if it's included in the response
+      // Update word count
       if (data.wordCount) {
         setScriptWordCount(data.wordCount);
       } else {
-        // Otherwise, calculate it from the script
         updateScriptWordCount(data.scriptWithMarkdown);
       }
     } catch (error) {
@@ -156,6 +226,11 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     } finally {
       setIsGeneratingScript(false);
     }
+  };
+
+  const handleGenerateFullScript = async () => {
+    if (currentScriptSections.length === 0) return;
+    await generateFullScriptDirectly(currentScriptSections);
   };
 
   const handleUpdateSection = (index: number, updatedSection: ScriptSection) => {
@@ -489,9 +564,11 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               onClick={handleGenerateOutline}
               disabled={isLoading || isGeneratingScript || !title}
             >
-              {isLoading ? "Generating..." : "Generate Outline"}
+              {isLoading ? "Generating..." : "Generate Script"}
             </Button>
             
+            {/* Hidden but keeping the code for future use */}
+            {/*
             <Button 
               className="flex-1" 
               variant="secondary"
@@ -500,6 +577,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             >
               {isGeneratingScript ? "Generating..." : "Generate Full Script"}
             </Button>
+            */}
             
             {currentFullScript && (
               <Button 
@@ -566,7 +644,8 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
       {/* Content Sections */}
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Outlines Section */}
+        {/* Outlines Section - Commented out but preserved */}
+        {/* 
         <div className="w-full lg:w-1/2 space-y-6">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">Script Outline</h2>
@@ -597,9 +676,10 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </div>
           )}
         </div>
+        */}
         
-        {/* Full Script Section */}
-        <div className="w-full lg:w-1/2 space-y-6">
+        {/* Full Script Section - Modified to take full width */}
+        <div className="w-full space-y-6">
           <div className="space-y-2 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold">Full Script</h2>
@@ -617,9 +697,9 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           {!currentFullScript ? (
             <div className="h-[300px] flex items-center justify-center border rounded-lg bg-muted/50">
               <p className="text-muted-foreground">
-                {isGeneratingScript 
-                  ? "Generating your full script..." 
-                  : "Generate a full script to see it here"}
+                {isGeneratingScript || isLoading
+                  ? "Generating your script..." 
+                  : "Click 'Generate Script' to create your content"}
               </p>
             </div>
           ) : (
@@ -627,7 +707,17 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               <div className="border rounded-lg p-4 bg-card shadow-sm overflow-y-auto max-h-[600px]">
                 <div className="prose prose-sm max-w-none dark:prose-invert">
                   <h1 className="text-xl font-bold mb-4">{title}</h1>
-                  <ReactMarkdown>{currentFullScript}</ReactMarkdown>
+                  {/* Modified to remove headers from the markdown rendering */}
+                  <ReactMarkdown
+                    components={{
+                      // Remove h1, h2, h3 headers from the output
+                      h1: () => null,
+                      h2: () => null,
+                      h3: () => null
+                    }}
+                  >
+                    {currentFullScript}
+                  </ReactMarkdown>
                 </div>
               </div>
               
