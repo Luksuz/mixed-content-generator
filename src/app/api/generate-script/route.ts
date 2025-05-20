@@ -3,7 +3,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { StructuredOutputParser } from "langchain/output_parsers";
 import { scriptSectionsSchema } from "../../../../zodSchemas/scriptSection";
 import { removeMarkdown } from "../../../lib/utils";
-import { ScriptSection } from "@/types";
+import { ScriptSection } from "@/app/types";
 
 export async function POST(request: Request) {
   try {

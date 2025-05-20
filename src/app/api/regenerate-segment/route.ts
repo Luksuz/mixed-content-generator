@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ChatOpenAI } from "@langchain/openai";
-import { ScriptSection } from "@/types";
+import { ScriptSection } from "@/app/types";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
