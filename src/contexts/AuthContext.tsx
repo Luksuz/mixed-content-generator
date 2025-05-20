@@ -14,7 +14,7 @@ interface AuthContextType {
   profile: Profile | null;
   isAdmin: boolean;
   isLoading: boolean;
-  signIn: () => Promise<void>; // Placeholder, adjust as needed for your auth flow
+  signIn: (email: string, password: string) => Promise<{ error?: string; success?: boolean } | void>;
   signOut: () => Promise<void>;
 }
 
@@ -119,11 +119,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [supabase]);
 
-  const signIn = async () => {
+  const signIn = async (email: string, password: string) => {
     // Implement your sign-in logic, e.g., redirecting to Supabase OAuth
     // For simplicity, this is a placeholder.
     // await supabase.auth.signInWithOAuth({ provider: 'google' });
-    console.log("Sign in function called");
+    console.log("Sign in function called with:", email);
+    
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error("Error signing in:", error.message);
+        return { error: error.message };
+      }
+      
+      // Successfully signed in
+      console.log("Successfully signed in user:", data.user?.email);
+      return { success: true };
+    } catch (err: any) {
+      console.error("Unexpected error during sign in:", err.message);
+      return { error: err.message || "An unexpected error occurred" };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signOut = async () => {

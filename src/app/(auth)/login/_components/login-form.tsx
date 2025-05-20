@@ -35,7 +35,15 @@ const LoginForm = () => {
 
   async function handleLogin(values: LoginValuesType) {
     const { email, password } = values;
-    const { error, success } = await signIn(email, password);
+    const result = await signIn(email, password);
+    
+    // If result is undefined or null, handle that case
+    if (!result) {
+      toast.error("Login failed. Please try again.");
+      return;
+    }
+
+    const { error, success } = result;
 
     if (error) {
       toast.error(error);
