@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import ScriptSectionCard from "../_components/script-section-card";
-import { ScriptSection } from "@/types";
 import { Download, Upload, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+export interface ScriptSection {
+  title: string;
+  writingInstructions: string;
+  image_generation_prompt: string;
+}
 // Add new prop for callback
 interface ScriptGeneratorProps {
   onScriptSectionsChange?: (sections: ScriptSection[]) => void;

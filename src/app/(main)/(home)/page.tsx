@@ -8,7 +8,13 @@ import VideoGenerator from "./components/video-generator";
 import GoogleDriveComponent from "./components/google-drive-component";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Volume2, Image, Film, Database, Cloud } from "lucide-react";
-import { ScriptSection } from "@/types";
+
+export interface ScriptSection {
+  title: string;
+  writingInstructions: string;
+  image_generation_prompt: string;
+}
+
 import { 
   ImageProvider, 
   GeneratedImageSet, 
@@ -19,18 +25,26 @@ import { CreateVideoRequestBody, CreateVideoResponse } from "@/types/video-gener
 import VideoStatus, { VideoJob } from './components/video-status';
 import { createClient } from "@/utils/supabase/client";
 import Navbar from "@/components/navbar";
-import { predefinedUsers } from "@/types/users";
+
+export interface User {
+  id: string;
+  name: string;
+}
+
+export const predefinedUsers: User[] = [
+  { id: 'user1', name: 'Alice' },
+  { id: 'user2', name: 'Bob' },
+  { id: 'user3', name: 'Charlie' },
+];
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 
 const GeneratorsPage = () => {
   const [activeTab, setActiveTab] = useState("script");
   
-  // User Selection State
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const { user, mappedUser } = useAuth();
+  const { user } = useAuth();
   
-  // Real user ID from authentication (if available)
   const actualUserId = user?.id || "";
 
   // Script Generator State
@@ -379,18 +393,15 @@ const GeneratorsPage = () => {
     }
   };
 
-  // We don't need the handleUserChange function anymore since we're using the actual user ID
-  // Just keep it as a stub for now to avoid breaking changes
+  // We don't need handleUserChange anymore
+  // Just remove it or update it to be a no-op if it's referenced elsewhere
   const handleUserChange = (userId: string) => {
-    console.log("User selection is deprecated - using authenticated user ID instead");
+    // No longer needed - do nothing
   };
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar 
-        selectedUserId={selectedUserId} 
-        onUserChange={handleUserChange} 
-      />
+      <Navbar />
 
       <div className="container py-6 max-w-7xl flex-1">
         <div className="mb-8">

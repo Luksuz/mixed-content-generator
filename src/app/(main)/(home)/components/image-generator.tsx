@@ -9,10 +9,15 @@ import { ImageProvider, GeneratedImageSet } from '@/types/image-generation';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ScriptSection } from "@/types";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+
+export interface ScriptSection {
+  title: string;
+  writingInstructions: string;
+  image_generation_prompt: string;
+}
 
 // Updated props for the controlled component
 interface ImageGeneratorProps {
