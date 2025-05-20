@@ -2,8 +2,8 @@
 
 import { NextResponse } from "next/server";
 import { ChatOpenAI } from "@langchain/openai";
-import { ScriptSection } from "@/types";
-import { removeMarkdown } from "../../../lib/utils";
+import { ScriptSection } from "@/app/types";
+import { removeMarkdown } from "@/lib/utils";
 
 export async function POST(request: Request) {
   try {
