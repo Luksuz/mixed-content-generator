@@ -31,12 +31,6 @@ export interface User {
   name: string;
 }
 
-export const predefinedUsers: User[] = [
-  { id: 'user1', name: 'Alice' },
-  { id: 'user2', name: 'Bob' },
-  { id: 'user3', name: 'Charlie' },
-];
-
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 

@@ -5,8 +5,17 @@ import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/utils/cn'; // Assuming cn utility exists for class merging
 
-import { User, predefinedUsers } from '@/types/users';
 
+interface User {
+  id: string;
+  name: string;
+}
+
+const predefinedUsers: User[] = [
+  { id: 'user1', name: 'Alice' },
+  { id: 'user2', name: 'Bob' },
+  { id: 'user3', name: 'Charlie' },
+];
 interface UserSelectorProps {
   selectedUserId: string;
   onUserChange: (userId: string) => void;
