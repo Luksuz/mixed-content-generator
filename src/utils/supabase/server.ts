@@ -6,7 +6,7 @@ export function createClient() {
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -14,13 +14,20 @@ export function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Ensure cookies have the proper SameSite and Secure settings for production
+              const cookieOptions = {
+                ...options,
+                sameSite: "lax" as const,
+                secure: process.env.NODE_ENV === "production",
+              };
+              cookieStore.set(name, value, cookieOptions);
+            });
+          } catch (error) {
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
+            console.warn("Warning: Unable to set cookies in Server Component", error);
           }
         },
       },

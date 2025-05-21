@@ -120,9 +120,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [supabase]);
 
   const signIn = async (email: string, password: string) => {
-    // Implement your sign-in logic, e.g., redirecting to Supabase OAuth
-    // For simplicity, this is a placeholder.
-    // await supabase.auth.signInWithOAuth({ provider: 'google' });
     console.log("Sign in function called with:", email);
     
     try {
@@ -134,15 +131,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (error) {
         console.error("Error signing in:", error.message);
-        return { error: error.message };
+        return { error: error.message, success: false };
+      }
+      
+      if (!data.user) {
+        console.error("No user returned after successful login");
+        return { error: "Login succeeded but no user data was returned", success: false };
+      }
+      
+      // After successful login, fetch the profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, is_admin')
+        .eq('user_id', data.user.id)
+        .single();
+      
+      if (profileError && profileError.code === 'PGRST116') {
+        // Profile doesn't exist, create one
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({ user_id: data.user.id, is_admin: false })
+          .select('user_id, is_admin')
+          .single();
+          
+        if (!insertError && newProfile) {
+          setProfile(newProfile as Profile);
+          setIsAdmin(newProfile.is_admin || false);
+        }
+      } else if (!profileError && profileData) {
+        setProfile(profileData as Profile);
+        setIsAdmin(profileData.is_admin || false);
       }
       
       // Successfully signed in
-      console.log("Successfully signed in user:", data.user?.email);
+      console.log("Successfully signed in user:", data.user.email);
+      setUser(data.user);
       return { success: true };
     } catch (err: any) {
       console.error("Unexpected error during sign in:", err.message);
-      return { error: err.message || "An unexpected error occurred" };
+      return { error: err.message || "An unexpected error occurred", success: false };
     } finally {
       setIsLoading(false);
     }

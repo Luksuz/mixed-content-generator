@@ -34,25 +34,42 @@ const LoginForm = () => {
   });
 
   async function handleLogin(values: LoginValuesType) {
-    const { email, password } = values;
-    const result = await signIn(email, password);
-    
-    // If result is undefined or null, handle that case
-    if (!result) {
-      toast.error("Login failed. Please try again.");
-      return;
-    }
+    try {
+      const { email, password } = values;
+      
+      // Show loading toast
+      const loadingToast = toast.loading("Logging in...");
+      
+      const result = await signIn(email, password);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      // If result is undefined or null, handle that case
+      if (!result) {
+        toast.error("Login failed. Please try again.");
+        return;
+      }
 
-    const { error, success } = result;
+      const { error, success } = result;
 
-    if (error) {
-      toast.error(error);
-      return;
-    }
+      if (error) {
+        toast.error(error);
+        return;
+      }
 
-    if (success) {
-      toast.success("Login successful");
-      router.push("/");
+      if (success) {
+        toast.success("Login successful!");
+        
+        // Force a small delay to ensure cookies/state are saved before redirecting
+        setTimeout(() => {
+          router.push("/");
+          router.refresh(); // Force a refresh to ensure new auth state is loaded
+        }, 300);
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      toast.error(err.message || "An unexpected error occurred");
     }
   }
 
