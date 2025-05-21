@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 
 interface Profile {
   user_id: string;
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const getSession = async () => {
@@ -179,12 +181,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    setIsLoading(true);
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setIsAdmin(false);
-    setIsLoading(false);
+    try {
+      console.log("Signing out user...");
+      setIsLoading(true);
+      await supabase.auth.signOut();
+      
+      // Clear auth state
+      setUser(null);
+      setProfile(null);
+      setIsAdmin(false);
+      
+      console.log("Redirecting to login page...");
+      
+      // Add a small delay to ensure state is cleared before redirect
+      setTimeout(() => {
+        router.push('/login');
+        router.refresh();
+      }, 100);
+      
+    } catch (error) {
+      console.error("Error during sign out:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
