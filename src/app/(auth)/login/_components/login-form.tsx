@@ -40,16 +40,17 @@ const LoginForm = () => {
       // Show loading toast
       const loadingToast = toast.loading("Logging in...");
       
+      console.log("Attempting login for:", email);
       const result = await signIn(email, password);
       
+      console.log("Login result:", result);
       
       // Dismiss loading toast
       toast.dismiss(loadingToast);
       
-      console.log("Login result:", result);
-      
       // If result is undefined or null, handle that case
       if (!result) {
+        console.error("Login returned undefined/null result");
         toast.error("Login failed. Please try again.");
         return;
       }
@@ -57,6 +58,7 @@ const LoginForm = () => {
       const { error, success } = result;
 
       if (error) {
+        console.error("Login error from response:", error);
         toast.error(error);
         return;
       }
@@ -65,26 +67,41 @@ const LoginForm = () => {
         console.log("Login successful, preparing to redirect...");
         toast.success("Login successful!");
         
+        // Use multiple fallback approaches for redirection
+        // This helps ensure redirection works across environments
+        
         try {
-          console.log("Starting redirect process...");
-          // Try immediate redirect first
+          // 1. First attempt - Use Next.js router with refresh
+          console.log("Redirect attempt 1: Next.js router");
           router.push("/");
           router.refresh();
           
-          // Also set a backup timeout in case the immediate redirect doesn't work
+          // 2. Fallback - Use direct window location after a short delay
           setTimeout(() => {
-            console.log("Timeout redirect executing...");
-            window.location.href = "/"; // Direct browser redirect as fallback
+            if (window.location.pathname.includes("/login")) {
+              console.log("Redirect attempt 2: Direct window.location (500ms)");
+              window.location.href = "/";
+            }
           }, 500);
+          
+          // 3. Final fallback - Force reload after a longer delay if still on login page
+          setTimeout(() => {
+            if (window.location.pathname.includes("/login")) {
+              console.log("Redirect attempt 3: Force reload (1000ms)");
+              window.location.reload();
+              setTimeout(() => window.location.href = "/", 100);
+            }
+          }, 1000);
         } catch (redirectError) {
+          // 4. Error fallback - If all else fails
           console.error("Error during redirect:", redirectError);
-          // Force redirect as last resort
           window.location.href = "/";
         }
       }
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("Login error in try/catch:", err);
       toast.error(err.message || "An unexpected error occurred");
+      form.reset(defaultValues);
     }
   }
 
