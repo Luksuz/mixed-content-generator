@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
             start: 0,
             length: totalDuration,
             fit: "cover",
-            opacity: 0.3
+            opacity: 0.5
           }
         ]
       };

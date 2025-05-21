@@ -26,6 +26,15 @@ import VideoStatus, { VideoJob } from './components/video-status';
 import { createClient } from "@/utils/supabase/client";
 import Navbar from "@/components/navbar";
 
+// New interface for extracted scenes
+export interface ExtractedScene {
+  chunkIndex: number;
+  originalText: string;
+  imagePrompt: string;
+  summary: string;
+  error?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -69,6 +78,12 @@ const GeneratorsPage = () => {
   // State for video job statuses
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
+
+  // Scene Extraction State - New
+  const [isExtractingScenes, setIsExtractingScenes] = useState<boolean>(false);
+  const [extractedScenes, setExtractedScenes] = useState<ExtractedScene[]>([]);
+  const [sceneExtractionError, setSceneExtractionError] = useState<string | null>(null);
+  const [numberOfScenesToExtract, setNumberOfScenesToExtract] = useState<number>(5); // Default to 5 scenes
 
   // Fetch existing jobs on component mount
   useEffect(() => {
@@ -147,10 +162,6 @@ const GeneratorsPage = () => {
   const handleSubtitlesGenerated = (url: string | null) => {
     setGeneratedSubtitlesUrl(url);
   };
-
-  // Use image_generation_prompt from script sections
-  const imagePrompts = sharedScriptSections.map(section => section.image_generation_prompt);
-  const defaultNumberOfImagesPerSectionPrompt = 1;
 
   // Moved image generation logic to GeneratorsPage
   const handleStartImageGeneration = async (provider: ImageProvider, numberOfImagesPerPrompt: number, manualSinglePrompt?: string) => {
@@ -393,6 +404,63 @@ const GeneratorsPage = () => {
     // No longer needed - do nothing
   };
 
+  // New function to extract scenes from the script
+  const handleExtractScenes = async (numScenes: number) => {
+    if (!sharedFullScriptCleaned || sharedFullScriptCleaned.trim() === '') {
+      setSceneExtractionError('No script available. Please generate a script first.');
+      return;
+    }
+
+    setIsExtractingScenes(true);
+    setSceneExtractionError(null);
+    setExtractedScenes([]);
+
+    try {
+      const response = await fetch('/api/extract-scenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script: sharedFullScriptCleaned,
+          numberOfScenes: numScenes,
+          userId: actualUserId || 'unknown_user'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract scenes');
+      }
+
+      const data = await response.json();
+      
+      if (data.scenes && Array.isArray(data.scenes)) {
+        setExtractedScenes(data.scenes);
+        console.log(`Successfully extracted ${data.scenes.length} scenes`);
+        
+        // If we're on the script tab, automatically switch to image tab after extraction
+        if (activeTab === "script") {
+          setActiveTab("image");
+        }
+      } else {
+        setSceneExtractionError('Received invalid response from scene extraction service');
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || 'An unexpected error occurred during scene extraction';
+      console.error('Scene extraction error:', err);
+      setSceneExtractionError(errorMsg);
+    } finally {
+      setIsExtractingScenes(false);
+    }
+  };
+
+  // Ensure we no longer have a duplicate declaration of imagePrompts
+  // Remove the old declaration and use the scene-based one instead
+  const imagePrompts = extractedScenes && extractedScenes.length > 0
+    ? extractedScenes.map(scene => scene.imagePrompt)
+    : sharedScriptSections.map(section => section.image_generation_prompt);
+  
+  const defaultNumberOfImagesPerSectionPrompt = 1;
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -456,6 +524,12 @@ const GeneratorsPage = () => {
             <ImageGenerator 
               scriptPrompts={imagePrompts}
               scriptSections={sharedScriptSections}
+              extractedScenes={extractedScenes}
+              isExtractingScenes={isExtractingScenes}
+              sceneExtractionError={sceneExtractionError}
+              onExtractScenes={handleExtractScenes}
+              numberOfScenesToExtract={numberOfScenesToExtract}
+              setNumberOfScenesToExtract={setNumberOfScenesToExtract}
               numberOfImagesPerPrompt={defaultNumberOfImagesPerSectionPrompt}
               isLoadingImages={isGeneratingImages}
               imageSets={generatedImageSetsList}

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Download, RefreshCw, Plus, Check, X } from "lucide-react";
+import { Image as ImageIcon, Download, RefreshCw, Plus, Check, X, FileText } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { ImageProvider, GeneratedImageSet } from '@/types/image-generation';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ExtractedScene } from "../page";
 
 export interface ScriptSection {
   title: string;
@@ -24,6 +25,14 @@ interface ImageGeneratorProps {
   scriptPrompts?: string[]; 
   scriptSections?: ScriptSection[];
   numberOfImagesPerPrompt?: number; 
+  
+  // Scene extraction props
+  extractedScenes?: ExtractedScene[];
+  isExtractingScenes?: boolean;
+  sceneExtractionError?: string | null;
+  onExtractScenes?: (numScenes: number) => Promise<void>;
+  numberOfScenesToExtract?: number;
+  setNumberOfScenesToExtract?: React.Dispatch<React.SetStateAction<number>>;
   
   isLoadingImages: boolean;
   imageSets: GeneratedImageSet[];
@@ -38,6 +47,15 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   scriptPrompts,
   scriptSections = [],
   numberOfImagesPerPrompt = 1, // Default if not specified by parent
+  
+  // Scene extraction props with defaults
+  extractedScenes = [],
+  isExtractingScenes = false,
+  sceneExtractionError = null,
+  onExtractScenes,
+  numberOfScenesToExtract = 5,
+  setNumberOfScenesToExtract,
+  
   isLoadingImages,
   imageSets,
   generationError,
@@ -78,19 +96,51 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const [editingImageIndex, setEditingImageIndex] = useState<{ setIndex: number; imageIndex: number } | null>(null);
   const [editedPrompt, setEditedPrompt] = useState<string>("");
   
-  // Update the default number of images when the prop changes
-  useEffect(() => {
-    setNumImagesPerPrompt(1); // Always set to 1
-  }, [numberOfImagesPerPrompt]);
+  // New state for scene extraction
+  const [selectedScenes, setSelectedScenes] = useState<number[]>([]);
+  const [activeImageSource, setActiveImageSource] = useState<'prompts' | 'scenes'>(
+    extractedScenes && extractedScenes.length > 0 ? 'scenes' : 'prompts'
+  );
   
-  // Get selected prompts
-  const getSelectedPrompts = () => {
-    const sectionPrompts = selectedSections
-      .map(index => scriptSections[index]?.image_generation_prompt)
-      .filter(Boolean) as string[];
+  // Update the activeImageSource when extractedScenes changes
+  useEffect(() => {
+    if (extractedScenes && extractedScenes.length > 0) {
+      setActiveImageSource('scenes');
+    } else {
+      setActiveImageSource('prompts');
+    }
+  }, [extractedScenes]);
+  
+  // Handle scene selection toggle
+  const toggleSceneSelection = (index: number) => {
+    setSelectedScenes(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
+  };
+  
+  // Extract scene prompts for generation
+  const getSelectedScenesPrompts = () => {
+    if (!extractedScenes || extractedScenes.length === 0) return [];
     
-    return [...sectionPrompts, ...customPrompts];
-  }
+    return selectedScenes
+      .map(index => extractedScenes[index]?.imagePrompt)
+      .filter(Boolean) as string[];
+  };
+  
+  // Get selected prompts based on active source
+  const getSelectedPrompts = () => {
+    if (activeImageSource === 'scenes') {
+      return getSelectedScenesPrompts();
+    } else {
+      const sectionPrompts = selectedSections
+        .map(index => scriptSections[index]?.image_generation_prompt)
+        .filter(Boolean) as string[];
+      
+      return [...sectionPrompts, ...customPrompts];
+    }
+  };
 
   const handleGenerateClick = () => {
     // Apply enhanced styling to image generation
@@ -357,33 +407,246 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     }
   };
 
-  // Determine if we have prompts available
-  const promptsAvailable = selectedSections.length > 0 || customPrompts.length > 0 || manualPrompt.trim() !== '';
+  // Handle extract scenes button click
+  const handleExtractScenesClick = () => {
+    if (onExtractScenes) {
+      onExtractScenes(numberOfScenesToExtract || 5);
+    }
+  };
+  
+  // Determine if we have prompts available based on active source
+  const promptsAvailable = activeImageSource === 'scenes'
+    ? selectedScenes.length > 0
+    : (selectedSections.length > 0 || customPrompts.length > 0 || manualPrompt.trim() !== '');
   
   // Count of prompts to be used
-  const selectedPromptCount = selectedSections.length + customPrompts.length;
-  const displayPromptCount = selectedPromptCount > 0 ? selectedPromptCount : (manualPrompt.trim() !== '' ? 1 : 0);
+  const selectedPromptCount = activeImageSource === 'scenes'
+    ? selectedScenes.length
+    : (selectedSections.length + customPrompts.length || (manualPrompt.trim() !== '' ? 1 : 0));
 
   return (
     <Tabs defaultValue="image-generation" className="space-y-8">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="image-generation">Image Generation</TabsTrigger>
+        <TabsTrigger value="scene-extraction">Scene Extraction</TabsTrigger>
         <TabsTrigger value="thumbnail-generation">Thumbnail Generation</TabsTrigger>
       </TabsList>
+
+      {/* NEW: Scene Extraction Tab */}
+      <TabsContent value="scene-extraction">
+        <div className="w-full space-y-6 p-6 bg-card rounded-lg border shadow-sm">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">AI Scene Extraction</h2>
+            <p className="text-muted-foreground">
+              Extract scenes from your script and generate image prompts for each scene.
+            </p>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <Label htmlFor="number-of-scenes">Number of Scenes</Label>
+              <div className="flex items-center gap-4">
+                <Slider
+                  id="number-of-scenes"
+                  min={1}
+                  max={20}
+                  step={1}
+                  value={[numberOfScenesToExtract || 5]}
+                  onValueChange={(value) => setNumberOfScenesToExtract && setNumberOfScenesToExtract(value[0])}
+                  disabled={isExtractingScenes}
+                  className="flex-grow"
+                />
+                <span className="w-12 text-center">{numberOfScenesToExtract || 5}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Select how many scenes to extract from your script.</p>
+            </div>
+
+            <Button
+              className="w-full flex items-center justify-center gap-2"
+              onClick={handleExtractScenesClick}
+              disabled={isExtractingScenes || !onExtractScenes}
+            >
+              {isExtractingScenes ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  <span>Extracting Scenes...</span>
+                </>
+              ) : `Extract ${numberOfScenesToExtract || 5} Scenes`}
+            </Button>
+            
+            {sceneExtractionError && (
+              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md dark:bg-red-900 dark:text-red-300 dark:border-red-700">
+                <p className="font-semibold">Error:</p>
+                <pre className="whitespace-pre-wrap text-sm">{sceneExtractionError}</pre>
+              </div>
+            )}
+            
+            {extractedScenes && extractedScenes.length > 0 && (
+              <div className="space-y-4 mt-6">
+                <div className="flex justify-between items-center">
+                  <Label>Extracted Scenes ({extractedScenes.length})</Label>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedScenes([])}
+                      disabled={selectedScenes.length === 0}
+                    >
+                      Clear
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSelectedScenes(Array.from({length: extractedScenes.length}, (_, i) => i))}
+                      disabled={selectedScenes.length === extractedScenes.length}
+                    >
+                      Select All
+                    </Button>
+                  </div>
+                </div>
+                
+                <ScrollArea className="h-96 border rounded-md p-4">
+                  <div className="space-y-4">
+                    {extractedScenes.map((scene, index) => (
+                      <div key={index} className="border rounded-md p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Checkbox 
+                            id={`scene-${index}`} 
+                            checked={selectedScenes.includes(index)}
+                            onCheckedChange={() => toggleSceneSelection(index)}
+                          />
+                          <Label 
+                            htmlFor={`scene-${index}`} 
+                            className="font-medium cursor-pointer"
+                          >
+                            {scene.summary || `Scene ${index + 1}`}
+                          </Label>
+                        </div>
+                        
+                        <div className="text-sm text-muted-foreground">
+                          <div className="font-medium mb-1">Image Prompt:</div>
+                          <div className="italic pl-4 border-l-2 border-muted-foreground/30">{scene.imagePrompt}</div>
+                        </div>
+                        
+                        <details className="text-sm">
+                          <summary className="cursor-pointer font-medium">View Original Text</summary>
+                          <div className="mt-2 p-2 bg-muted/30 rounded text-muted-foreground max-h-32 overflow-y-auto">
+                            {scene.originalText}
+                          </div>
+                        </details>
+                        
+                        {scene.error && (
+                          <div className="text-sm text-red-500">
+                            Error: {scene.error}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={() => {
+                      if (selectedScenes.length > 0) {
+                        // Switch to image generation tab
+                        const tabElement = document.querySelector('[data-value="image-generation"]') as HTMLElement;
+                        if (tabElement) tabElement.click();
+                      }
+                    }}
+                    disabled={selectedScenes.length === 0}
+                  >
+                    Use Selected Scenes for Image Generation
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </TabsContent>
 
       <TabsContent value="image-generation">
         <div className="w-full space-y-6 p-6 bg-card rounded-lg border shadow-sm">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold">AI Image Generator</h2>
             <p className="text-muted-foreground">
-              {scriptSections && scriptSections.length > 0 
-                ? `Select script sections to use their image prompts, or create custom prompts.`
-                : "Describe the image you want to see, or generate a script first."}
+              Generate images from script sections, extracted scenes, or custom prompts.
             </p>
           </div>
+          
+          {/* Source Selection for prompts */}
+          {extractedScenes && extractedScenes.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={activeImageSource === 'scenes' ? "default" : "outline"}
+                onClick={() => setActiveImageSource('scenes')}
+                className="flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18" /><path d="M3 15h18" /><path d="M9 3v18" /><path d="M15 3v18" /></svg>
+                Use Extracted Scenes ({extractedScenes.length})
+              </Button>
+              
+              <Button
+                variant={activeImageSource === 'prompts' ? "default" : "outline"}
+                onClick={() => setActiveImageSource('prompts')}
+                className="flex items-center justify-center"
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                Use Script Sections ({scriptSections.length})
+              </Button>
+            </div>
+          )}
 
-          {/* Script Section Selection */}
-          {scriptSections && scriptSections.length > 0 ? (
+          {/* Scene Selection - show only when activeImageSource is 'scenes' */}
+          {activeImageSource === 'scenes' && extractedScenes && extractedScenes.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label>Extracted Scenes</Label>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedScenes([])}
+                    disabled={selectedScenes.length === 0}
+                  >
+                    Clear
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedScenes(Array.from({length: extractedScenes.length}, (_, i) => i))}
+                    disabled={selectedScenes.length === extractedScenes.length}
+                  >
+                    Select All
+                  </Button>
+                </div>
+              </div>
+              
+              <ScrollArea className="h-52 border rounded-md p-4">
+                <div className="space-y-2">
+                  {extractedScenes.map((scene, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Checkbox 
+                        id={`image-scene-${index}`} 
+                        checked={selectedScenes.includes(index)}
+                        onCheckedChange={() => toggleSceneSelection(index)}
+                      />
+                      <Label 
+                        htmlFor={`image-scene-${index}`} 
+                        className="flex-grow cursor-pointer text-sm"
+                      >
+                        <div className="font-medium">{scene.summary || `Scene ${index + 1}`}</div>
+                        <div className="text-muted-foreground truncate">{scene.imagePrompt}</div>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* Script Section Selection - show only when activeImageSource is 'prompts' */}
+          {activeImageSource === 'prompts' && scriptSections && scriptSections.length > 0 && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <Label>Script Sections</Label>
@@ -428,53 +691,56 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 </div>
               </ScrollArea>
             </div>
-          ) : null}
+          )}
           
-          {/* Custom Prompts */}
-          <div className="space-y-4">
-            <Label>Custom Prompts</Label>
-            
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a custom image prompt..."
-                value={newCustomPrompt}
-                onChange={(e) => setNewCustomPrompt(e.target.value)}
-                disabled={isLoadingImages || regenerating}
-                className="flex-grow"
-              />
-              <Button 
-                variant="outline"
-                onClick={addCustomPrompt}
-                disabled={isLoadingImages || regenerating || !newCustomPrompt.trim()}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {customPrompts.length > 0 && (
-              <div className="space-y-2">
-                {customPrompts.map((prompt, index) => (
-                  <div key={index} className="flex items-center gap-2 border rounded-md p-2">
-                    <div className="flex-grow text-sm">{prompt}</div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0" 
-                      onClick={() => removeCustomPrompt(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <div className="text-xs text-muted-foreground">
-                  {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
-                </div>
+          {/* Custom Prompts - show only for 'prompts' source */}
+          {activeImageSource === 'prompts' && (
+            <div className="space-y-4">
+              <Label>Custom Prompts</Label>
+              
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add a custom image prompt..."
+                  value={newCustomPrompt}
+                  onChange={(e) => setNewCustomPrompt(e.target.value)}
+                  disabled={isLoadingImages || regenerating}
+                  className="flex-grow"
+                />
+                <Button 
+                  variant="outline"
+                  onClick={addCustomPrompt}
+                  disabled={isLoadingImages || regenerating || !newCustomPrompt.trim()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-          </div>
+              
+              {customPrompts.length > 0 && (
+                <div className="space-y-2">
+                  {customPrompts.map((prompt, index) => (
+                    <div key={index} className="flex items-center gap-2 border rounded-md p-2">
+                      <div className="flex-grow text-sm">{prompt}</div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0" 
+                        onClick={() => removeCustomPrompt(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="text-xs text-muted-foreground">
+                    {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Manual Prompt - show only if no sections or custom prompts */}
-          {selectedSections.length === 0 && customPrompts.length === 0 && (
+          {/* Manual Prompt - show only if no scenes/sections selected */}
+          {(activeImageSource === 'prompts' && selectedSections.length === 0 && customPrompts.length === 0) || 
+           (activeImageSource === 'scenes' && selectedScenes.length === 0) ? (
             <div className="space-y-2">
               <Label htmlFor="manual-prompt">Image Description</Label>
               <Textarea
@@ -487,7 +753,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               />
               <p className="text-xs text-muted-foreground">Provide a detailed description for best results. Be specific about elements, style, lighting, and composition.</p>
             </div>
-          )}
+          ) : null}
 
           {/* NEW: Image Style Selection */}
           <div className="space-y-2 border-t pt-4">
@@ -598,35 +864,44 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     <span>{generatingInfo || "Generating..."}</span>
                   </>
-                ) : `Generate Image${displayPromptCount > 1 ? 's' : ''} (${displayPromptCount} prompt${displayPromptCount > 1 ? 's' : ''})`}
+                ) : `Generate Image${selectedPromptCount > 1 ? 's' : ''} (${selectedPromptCount} prompt${selectedPromptCount > 1 ? 's' : ''})`}
               </Button>
             </div>
           </div>
           
           {/* Summary Badge */}
-          {(selectedSections.length > 0 || customPrompts.length > 0) && (
+          {selectedPromptCount > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {selectedSections.length > 0 && (
+              {activeImageSource === 'scenes' && selectedScenes.length > 0 && (
+                <Badge variant="secondary">
+                  {selectedScenes.length} scene{selectedScenes.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+              
+              {activeImageSource === 'prompts' && selectedSections.length > 0 && (
                 <Badge variant="secondary">
                   {selectedSections.length} script section{selectedSections.length !== 1 ? 's' : ''}
                 </Badge>
               )}
-              {customPrompts.length > 0 && (
+              
+              {activeImageSource === 'prompts' && customPrompts.length > 0 && (
                 <Badge variant="secondary">
                   {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
                 </Badge>
               )}
+              
               <Badge variant="secondary">
                 1 image per prompt
               </Badge>
+              
               <div className="text-xs text-muted-foreground ml-2">
-                {displayPromptCount} total images will be generated
+                {selectedPromptCount} total images will be generated
               </div>
             </div>
           )}
         </div>
 
-        {/* Regeneration Controls - enhanced with more options */}
+        {/* Regeneration Controls - No changes needed here */}
         {selectedImages.length > 0 && (
           <div className="p-4 border rounded-lg bg-card shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
