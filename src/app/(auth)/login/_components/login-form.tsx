@@ -42,8 +42,11 @@ const LoginForm = () => {
       
       const result = await signIn(email, password);
       
+      
       // Dismiss loading toast
       toast.dismiss(loadingToast);
+      
+      console.log("Login result:", result);
       
       // If result is undefined or null, handle that case
       if (!result) {
@@ -59,13 +62,25 @@ const LoginForm = () => {
       }
 
       if (success) {
+        console.log("Login successful, preparing to redirect...");
         toast.success("Login successful!");
         
-        // Force a small delay to ensure cookies/state are saved before redirecting
-        setTimeout(() => {
+        try {
+          console.log("Starting redirect process...");
+          // Try immediate redirect first
           router.push("/");
-          router.refresh(); // Force a refresh to ensure new auth state is loaded
-        }, 300);
+          router.refresh();
+          
+          // Also set a backup timeout in case the immediate redirect doesn't work
+          setTimeout(() => {
+            console.log("Timeout redirect executing...");
+            window.location.href = "/"; // Direct browser redirect as fallback
+          }, 500);
+        } catch (redirectError) {
+          console.error("Error during redirect:", redirectError);
+          // Force redirect as last resort
+          window.location.href = "/";
+        }
       }
     } catch (err: any) {
       console.error("Login error:", err);

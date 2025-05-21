@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const getSession = async () => {
       setIsLoading(true);
+      console.log("AuthContext: Fetching session...");
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
@@ -38,7 +39,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
+      console.log("AuthContext: Session data:", session ? "Session exists" : "No session");
       const currentUser = session?.user || null;
+      console.log("AuthContext: User data:", currentUser ? `User found: ${currentUser.email}` : "No user");
       setUser(currentUser);
 
       if (currentUser) {
