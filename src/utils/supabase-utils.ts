@@ -1,6 +1,4 @@
-"use server"
-
-import { createClient as createAdminClient } from '@/utils/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import fs from 'fs/promises';
 import { Buffer } from 'buffer'; // Ensure Buffer is imported
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -13,7 +11,7 @@ const supabaseBucket = process.env.SUPABASE_BUCKET_NAME || 'generated_media'; //
 let supabaseAdmin: SupabaseClient | null = null;
 
 if (supabaseUrl && supabaseServiceKey) {
-  supabaseAdmin = createAdminClient();
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
   console.log("Supabase Admin client initialized.");
 } else {
   console.error("❌ Supabase URL or Service Role Key environment variables are missing. Supabase functionalities will be unavailable.");
