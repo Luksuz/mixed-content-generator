@@ -9,29 +9,51 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Placeholder types (as the original files are missing)
-type AudioProvider = "elevenlabs" | "minimax" | "openai" | "fish-audio"; // Removed "google-tts"
+type AudioProvider = "elevenlabs" | "minimax" | "openai" | "fish-audio" | "google-tts"; // Added "google-tts"
 
 interface VoiceInfo {
   value: string;
   label: string;
+  provider: TtsProvider;
 }
 
 // Placeholder voice data (examples, replace with actual data if needed)
 // Removed googleTTSVoices array
 const elevenLabsVoices: VoiceInfo[] = [
-  { value: "Rachel", label: "ElevenLabs Rachel" },
-  { value: "Adam", label: "ElevenLabs Adam" },
+  { value: "Rachel", label: "ElevenLabs Rachel", provider: "elevenlabs" },
+  { value: "Adam", label: "ElevenLabs Adam", provider: "elevenlabs" },
 ];
 const minimaxTTSVoices: VoiceInfo[] = [
-  { value: "Wise_Woman", label: "Minimax Wise Woman" },
-  { value: "Friendly_Person", label: "Minimax Friendly Person" },
+  // Prioritized Female
+  { value: "English_radiant_girl", label: "Radiant Girl", provider: "minimax" },
+  { value: "English_captivating_female1", label: "Captivating Female", provider: "minimax" },
+  { value: "English_Steady_Female_1", label: "Steady Women", provider: "minimax" },
+  // Prioritized Male
+  { value: "English_CaptivatingStoryteller", label: "Captivating Storyteller", provider: "minimax" },
+  { value: "English_Deep-VoicedGentleman", label: "Man With Deep Voice", provider: "minimax" },
+  { value: "English_magnetic_voiced_man", label: "Magnetic-voiced Male", provider: "minimax" },
+  { value: "English_ReservedYoungMan", label: "Reserved Young Man", provider: "minimax" },
+  // Remaining voices
+  { value: "English_expressive_narrator", label: "Expressive Narrator", provider: "minimax" },
+  { value: "English_compelling_lady1", label: "Compelling Lady", provider: "minimax" },
+  { value: "English_CalmWoman", label: "Calm Woman", provider: "minimax" },
+  { value: "English_Graceful_Lady", label: "Graceful Lady", provider: "minimax" },
+  { value: "English_MaturePartner", label: "Mature Partner", provider: "minimax" },
+  { value: "English_MatureBoss", label: "Bossy Lady", provider: "minimax" },
+  { value: "English_Wiselady", label: "Wise Lady", provider: "minimax" },
+  { value: "English_patient_man_v1", label: "Patient Man", provider: "minimax" },
+  { value: "English_Female_Narrator", label: "Female Narrator", provider: "minimax" }, // Assuming a value for this new label
+  { value: "English_Trustworth_Man", label: "Trustworthy Man", provider: "minimax" },
+  { value: "English_Gentle-voiced_man", label: "Gentle-voiced Man", provider: "minimax" },
+  { value: "English_Upbeat_Woman", label: "Upbeat Woman", provider: "minimax" },
+  { value: "English_Friendly_Female_3", label: "Friendly Women", provider: "minimax" },
 ];
 
 
 interface GenerateAudioRequestBody {
   text: string;
   provider: AudioProvider;
-  voice: string;
+  voice?: string;
   userId?: string;
   // Add other fields based on actual API (e.g., model for minimax)
   model?: string; 
@@ -39,7 +61,9 @@ interface GenerateAudioRequestBody {
   fishAudioModel?: string;
   elevenLabsVoiceId?: string;
   elevenLabsModelId?: string;
-  languageCode?: string; // Add language code for ElevenLabs
+  languageCode?: string; // Made optional, Add language code for ElevenLabs
+  googleTtsVoiceName?: string;
+  googleTtsLanguageCode?: string;
 }
 
 interface GenerateAudioResponse {
@@ -50,7 +74,7 @@ interface GenerateAudioResponse {
 }
 
 
-type TtsProvider = "openai" | "minimax" | "fish-audio" | "elevenlabs"; // This was already present
+type TtsProvider = "openai" | "minimax" | "fish-audio" | "elevenlabs" | "google-tts"; // This was already present
 
 type MinimaxModel = "speech-02-hd" | "speech-02-turbo" | "speech-01-hd" | "speech-01-turbo";
 
@@ -123,6 +147,14 @@ const elevenLabsModelOptions = [
   { id: "eleven_flash_v2_5", name: "Flash V2.5 (32 languages, low latency)" }
 ];
 
+// Add Google TTS Voice type from backend
+interface GoogleTtsVoice {
+  name: string;
+  languageCodes: string[];
+  ssmlGender: 'SSML_VOICE_GENDER_UNSPECIFIED' | 'MALE' | 'FEMALE' | 'NEUTRAL';
+  naturalSampleRateHertz: number;
+}
+
 const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   initialText,
   generatedAudioUrl,
@@ -161,6 +193,12 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [audioDuration, setAudioDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
+
+  // Add state for Google TTS voices and loading state
+  const [googleTtsVoicesList, setGoogleTtsVoicesList] = useState<GoogleTtsVoice[]>([]);
+  const [isLoadingGoogleTtsVoices, setIsLoadingGoogleTtsVoices] = useState(false);
+  const [selectedGoogleTtsLanguage, setSelectedGoogleTtsLanguage] = useState<string>("en-US");
+  const [selectedGoogleTtsVoiceName, setSelectedGoogleTtsVoiceName] = useState<string>("");
 
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -262,6 +300,19 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         if (elevenLabsModelId === "eleven_flash_v2_5") {
           requestBody.languageCode = selectedLanguageCode;
         }
+      } else if (selectedProvider === 'google-tts') {
+        if (!selectedGoogleTtsVoiceName) {
+          setAudioGenerationError("Please select a Google TTS voice.");
+          setIsGeneratingAudio(false);
+          return;
+        }
+        requestBody.googleTtsVoiceName = selectedGoogleTtsVoiceName;
+        // The selectedGoogleTtsLanguage is the language code for Google TTS
+        requestBody.googleTtsLanguageCode = selectedGoogleTtsLanguage; 
+        // requestBody.googleTtsSsmlGender = selectedVoice.split('-')[2]; // Example if gender is in voice name format
+        // Remove the generic `voice` and `languageCode` for Google TTS as it uses specific ones
+        delete requestBody.voice;
+        delete requestBody.languageCode; 
       }
 
 
@@ -374,14 +425,16 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     switch (selectedProvider) {
       case "elevenlabs":
         return elevenLabsVoicesList.length > 0 
-            ? elevenLabsVoicesList.map((v: VoiceOption): VoiceInfo => ({ value: v.id, label: v.name })) 
-            : defaultElevenLabsVoices.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
+            ? elevenLabsVoicesList.map((v: VoiceOption): VoiceInfo => ({ value: v.id, label: v.name, provider: v.provider })) 
+            : defaultElevenLabsVoices.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name, provider: v.provider}));
       case "minimax":
         return minimaxTTSVoices;
       case "openai":
-         return voiceOptions.openai.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
+         return voiceOptions.openai.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name, provider: v.provider}));
       case "fish-audio":
-          return voiceOptions["fish-audio"].map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
+          return voiceOptions["fish-audio"].map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name, provider: v.provider}));
+      case "google-tts": // Return empty for now, will be handled by dedicated UI
+        return [];
       default:
         // Ensure a valid AudioProvider string is checked, or handle unexpected values
         const _exhaustiveCheck: never = selectedProvider;
@@ -409,12 +462,12 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     { id: "speech-1.5", name: "Speech 1.5" },
   ];
 
-  // Fish Audio voice options
-  const fishAudioVoices: VoiceOption[] = [
-    { id: "54e3a85ac9594ffa83264b8a494b901b", name: "Spongebob", provider: "fish-audio" },
-    { id: "802e3bc2b27e49c2995d23ef70e6ac89", name: "Energetic Male", provider: "fish-audio" },
-    // ... (other fish audio voices)
-  ];
+// Fish Audio voice options
+const fishAudioVoices: VoiceOption[] = [
+  { id: "058e3e7df4c94303a7ce22576fc81ec8", name: "Lisa: English Woman (US) - Advertisement", provider: "fish-audio" },
+  { id: "ecc977e5dca94390926fab1e0c2ba292", name: "Katie: English Woman (US) - Training", provider: "fish-audio" },
+  { id: "125d6460953a443d8c65909adf87ca3f", name: "Neil: English Man (US) - Audiobook", provider: "fish-audio" },
+];
 
   // ElevenLabs voice options (fallback)
   const defaultElevenLabsVoices: VoiceOption[] = [
@@ -433,6 +486,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     minimax: [ { id: "Wise_Woman", name: "Wise Woman", provider: "minimax" }, /* ... */ ],
     "fish-audio": fishAudioVoices,
     "elevenlabs": elevenLabsVoicesList.length > 0 ? elevenLabsVoicesList : defaultElevenLabsVoices,
+    "google-tts": [], // Added to satisfy the type, dropdown will be hidden
   };
   
   useEffect(() => {
@@ -466,6 +520,40 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     fetchElevenLabsVoices();
   }, [selectedProvider, elevenLabsVoiceId]); // elevenLabsVoiceId might cause loop if set inside
 
+  // Fetch Google TTS Voices when provider changes to google-tts
+  useEffect(() => {
+    const fetchGoogleTtsVoices = async () => {
+      if (selectedProvider === "google-tts") {
+        setIsLoadingGoogleTtsVoices(true);
+        setAudioGenerationError(null);
+        try {
+          const response = await fetch("/api/list-google-voices");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.details || "Failed to fetch Google TTS voices");
+          }
+          const data = await response.json();
+          const fetchedVoices: GoogleTtsVoice[] = data.voices || [];
+          setGoogleTtsVoicesList(fetchedVoices);
+          // Automatically select the first available voice for the default/selected language
+          const firstVoiceInLanguage = fetchedVoices.find(v => v.languageCodes.includes(selectedGoogleTtsLanguage));
+          if (firstVoiceInLanguage) {
+            setSelectedGoogleTtsVoiceName(firstVoiceInLanguage.name);
+          } else if (fetchedVoices.length > 0) {
+            setSelectedGoogleTtsVoiceName(fetchedVoices[0].name);
+            setSelectedGoogleTtsLanguage(fetchedVoices[0].languageCodes[0] || "en-US");
+          }
+        } catch (error: any) {
+          console.error("Error fetching Google TTS voices:", error);
+          setAudioGenerationError(`Failed to load Google TTS voices: ${error.message}.`);
+          setGoogleTtsVoicesList([]);
+        } finally {
+          setIsLoadingGoogleTtsVoices(false);
+        }
+      }
+    };
+    fetchGoogleTtsVoices();
+  }, [selectedProvider, selectedGoogleTtsLanguage]); // Re-fetch if provider or language changes
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -515,6 +603,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               <option value="minimax">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
+              <option value="google-tts">Google Cloud TTS</option>
               {/* Add other providers as needed */}
             </select>
           </div>
@@ -525,8 +614,8 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
               // Update to include subtitle generation state
-              disabled={isGeneratingAudio || isGeneratingSubtitles || getVoiceOptions().length === 0}
-              className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+              disabled={isGeneratingAudio || isGeneratingSubtitles || getVoiceOptions().length === 0 || selectedProvider === 'google-tts'}
+              className={`w-full p-2 border rounded mt-1 bg-background text-foreground ${selectedProvider === 'google-tts' ? 'hidden' : ''}`}
             >
               {getVoiceOptions().map((voice: VoiceInfo) => (
                 <option key={voice.value} value={voice.value}>{voice.label}</option>
@@ -568,6 +657,80 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                   </select>
                 </div>
               )}
+            </>
+          )}
+
+          {/* Google TTS Specific UI */}
+          {selectedProvider === 'google-tts' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="google-language-select">Google TTS Language</Label>
+                <select
+                  id="google-language-select"
+                  value={selectedGoogleTtsLanguage}
+                  onChange={(e) => {
+                    setSelectedGoogleTtsLanguage(e.target.value);
+                    // Reset voice selection when language changes
+                    const firstVoiceInNewLanguage = googleTtsVoicesList.find(v => v.languageCodes.includes(e.target.value));
+                    if (firstVoiceInNewLanguage) {
+                      setSelectedGoogleTtsVoiceName(firstVoiceInNewLanguage.name);
+                    } else {
+                        setSelectedGoogleTtsVoiceName(""); // Or select the first overall if no match
+                    }
+                  }}
+                  disabled={isGeneratingAudio || isGeneratingSubtitles || isLoadingGoogleTtsVoices}
+                  className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+                >
+                  {isLoadingGoogleTtsVoices ? (
+                    <option>Loading languages...</option>
+                  ) : (
+                    Array.from(new Set(googleTtsVoicesList.flatMap(v => v.languageCodes))).sort().map(langCode => (
+                      <option key={langCode} value={langCode}>{langCode}</option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="google-voice-select">Google TTS Voice</Label>
+                <select
+                  id="google-voice-select"
+                  value={selectedGoogleTtsVoiceName}
+                  onChange={(e) => setSelectedGoogleTtsVoiceName(e.target.value)}
+                  disabled={isGeneratingAudio || isGeneratingSubtitles || isLoadingGoogleTtsVoices || googleTtsVoicesList.filter(v => v.languageCodes.includes(selectedGoogleTtsLanguage)).length === 0}
+                  className="w-full p-2 border rounded mt-1 bg-background text-foreground"
+                >
+                  {isLoadingGoogleTtsVoices ? (
+                    <option>Loading voices...</option>
+                  ) : (
+                    (() => {
+                      const filteredVoices = googleTtsVoicesList.filter(v => v.languageCodes.includes(selectedGoogleTtsLanguage));
+                      const groupedVoices: { [key: string]: GoogleTtsVoice[] } = {
+                        MALE: [],
+                        FEMALE: [],
+                        NEUTRAL: [],
+                        SSML_VOICE_GENDER_UNSPECIFIED: []
+                      };
+                      filteredVoices.forEach(voice => {
+                        groupedVoices[voice.ssmlGender]?.push(voice);
+                      });
+
+                      return Object.entries(groupedVoices).flatMap(([gender, voices]) => {
+                        if (voices.length === 0) return [];
+                        return [
+                          <optgroup key={gender} label={`${gender.charAt(0)}${gender.slice(1).toLowerCase().replace("ssml_voice_gender_","")} Voices`}>
+                            {voices.map(voice => (
+                              <option key={voice.name} value={voice.name}>
+                                {voice.name} ({voice.languageCodes.join(', ')})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ];
+                      });
+                    })()
+                  )}
+                </select>
+              </div>
             </>
           )}
         </div>

@@ -9,6 +9,7 @@ import { ElevenLabsClient } from "elevenlabs";
 import { spawn } from 'child_process'; // For ffmpeg
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
 import { v4 as uuidv4 } from 'uuid';
+import { synthesizeGoogleTts } from "@/utils/google-tts-utils"; // Added Google TTS utility
 
 // --- Constants ---
 const AUDIO_CHUNK_MAX_LENGTH = 2800; // Max characters per chunk
@@ -119,9 +120,9 @@ async function generateSingleAudioChunk(
   baseTempDir: string
 ): Promise<string> {
   console.log(`🔊 [Chunk ${chunkIndex}] Generating for provider: ${provider}, length: ${textChunk.length}`);
-  const { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode } = providerArgs;
+  const { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, googleTtsVoiceName } = providerArgs;
   
-  const tempFileName = `${provider}-${voice.replace(/\\s+/g, '_')}-chunk${chunkIndex}-${Date.now()}.mp3`;
+  const tempFileName = `${provider}-${voice ? voice.replace(/\\s+/g, '_') : googleTtsVoiceName ? googleTtsVoiceName.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown_voice'}-chunk${chunkIndex}-${Date.now()}.mp3`;
   const tempFilePath = path.join(baseTempDir, tempFileName);
   
   let audioBuffer: Buffer;
@@ -222,6 +223,13 @@ async function generateSingleAudioChunk(
         audioBuffer = Buffer.from(elConcatenatedUint8Array);
         break;
         
+      case "google-tts":
+        if (!googleTtsVoiceName) throw new Error(`Missing googleTtsVoiceName for Google TTS [Chunk ${chunkIndex}]`);
+        if (!languageCode) throw new Error(`Missing languageCode for Google TTS [Chunk ${chunkIndex}]`);
+        console.log(`🇬☁️ [Chunk ${chunkIndex}] Google TTS: voice=${googleTtsVoiceName}, language=${languageCode}`);
+        audioBuffer = await synthesizeGoogleTts(textChunk, googleTtsVoiceName, languageCode);
+        break;
+
       default:
         throw new Error(`Unsupported provider: ${provider} [Chunk ${chunkIndex}]`);
     }
@@ -524,7 +532,7 @@ async function downloadAndSaveSubtitles(subtitlesUrl: string, userId: string): P
 // --- Main POST Handler ---
 export async function POST(request: Request) {
   const requestBody = await request.json();
-  const { text, provider, voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, userId = "unknown_user" } = requestBody;
+  const { text, provider, voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, userId = "unknown_user", googleTtsVoiceName, googleTtsLanguageCode, googleTtsSsmlGender } = requestBody;
 
   console.log("📥 Received audio generation request (chunking & retry enabled)");
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, userId=${userId}, text length=${text?.length || 0}`);
@@ -532,8 +540,11 @@ export async function POST(request: Request) {
   if (provider === "elevenlabs") {
     console.log(`🔊 ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
   }
+  if (provider === "google-tts") {
+    console.log(`🇬☁️ Google TTS details: voice=${googleTtsVoiceName}, language=${googleTtsLanguageCode || languageCode}`);
+  }
 
-  if (!text || !provider || !voice) {
+  if (!text || !provider || (provider !== "google-tts" && !voice) || (provider === "google-tts" && !googleTtsVoiceName)) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -554,7 +565,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No text content to process after chunking." }, { status: 400 });
     }
 
-    const providerSpecificArgs = { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, provider };
+    const providerSpecificArgs: any = { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, provider };
+    if (provider === "google-tts") {
+      providerSpecificArgs.googleTtsVoiceName = googleTtsVoiceName;
+      // Google TTS language code can come from a specific field or the general languageCode field
+      providerSpecificArgs.languageCode = googleTtsLanguageCode || languageCode; 
+      // providerSpecificArgs.ssmlGender = googleTtsSsmlGender; // SSML Gender might not be needed if voiceName is specific enough
+    }
     const successfulChunkPaths: (string | null)[] = new Array(textChunks.length).fill(null);
     let allChunksSucceeded = false;
 
@@ -619,7 +636,7 @@ export async function POST(request: Request) {
     }
     
     // Path for the final locally joined/moved file (still temporary)
-    const localFinalFileName = `${provider}-${voice.replace(/\s+/g, '_ ')}-${uuidv4()}-final.mp3`;
+    const localFinalFileName = `${provider}-${provider === "google-tts" ? googleTtsVoiceName.replace(/[^a-zA-Z0-9]/g, '_') : voice.replace(/\\s+/g, '_ ')}-${uuidv4()}-final.mp3`;
     const localFinalFilePath = path.join(tempDirForRequest, localFinalFileName);
 
     let fileToUploadPath: string;
@@ -709,7 +726,7 @@ export async function POST(request: Request) {
       try {
           if (fs.existsSync(tempDirForRequest)) {
               await fsp.rm(tempDirForRequest, { recursive: true, force: true });
-              console.log(`🧹 Cleaned up request temp directory: ${tempDirForRequest}`);
+              console.log(`�� Cleaned up request temp directory: ${tempDirForRequest}`);
           }
       } catch (e) {
           console.warn(`⚠️ Failed to cleanup request temp directory ${tempDirForRequest}:`, e);
