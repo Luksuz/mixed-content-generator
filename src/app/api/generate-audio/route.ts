@@ -18,6 +18,9 @@ const GENERATED_AUDIO_DIR_NAME = "generated-audio"; // Main directory for final 
 const MAX_CHUNK_GENERATION_ATTEMPTS = 3; // 1 initial try + 2 retries
 const RETRY_DELAY_MS = 1500; // Delay between retry attempts
 
+const CHUNK_PROCESSING_BATCH_SIZE = 10; // New: Max chunks to process before a potential 1-min delay
+const DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1000; // New: 1 minute delay
+
 const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
 
 // --- Initialize Clients & Config ---
@@ -538,7 +541,7 @@ export async function POST(request: Request) {
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, userId=${userId}, text length=${text?.length || 0}`);
   // Log ElevenLabs specific details if applicable
   if (provider === "elevenlabs") {
-    console.log(`🔊 ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
+    console.log(`�� ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
   }
   if (provider === "google-tts") {
     console.log(`🇬☁️ Google TTS details: voice=${googleTtsVoiceName}, language=${googleTtsLanguageCode || languageCode}`);
@@ -568,62 +571,81 @@ export async function POST(request: Request) {
     const providerSpecificArgs: any = { voice, model, fishAudioVoiceId, fishAudioModel, elevenLabsVoiceId, elevenLabsModelId, languageCode, provider };
     if (provider === "google-tts") {
       providerSpecificArgs.googleTtsVoiceName = googleTtsVoiceName;
-      // Google TTS language code can come from a specific field or the general languageCode field
-      providerSpecificArgs.languageCode = googleTtsLanguageCode || languageCode; 
-      // providerSpecificArgs.ssmlGender = googleTtsSsmlGender; // SSML Gender might not be needed if voiceName is specific enough
+      providerSpecificArgs.languageCode = googleTtsLanguageCode || languageCode;
     }
     const successfulChunkPaths: (string | null)[] = new Array(textChunks.length).fill(null);
     let allChunksSucceeded = false;
 
+    // Main retry loop
     for (let attempt = 1; attempt <= MAX_CHUNK_GENERATION_ATTEMPTS; attempt++) {
-      console.log(`🔄 Attempt ${attempt}/${MAX_CHUNK_GENERATION_ATTEMPTS} for generating audio chunks.`);
+      console.log(`🔄 Overall Attempt ${attempt}/${MAX_CHUNK_GENERATION_ATTEMPTS} for generating audio chunks.`);
       
       const tasksForThisAttempt: { originalIndex: number; textChunk: string }[] = [];
       for (let i = 0; i < textChunks.length; i++) {
-        if (successfulChunkPaths[i] === null) { // Only attempt chunks that haven't succeeded yet
+        if (successfulChunkPaths[i] === null) { // Only select chunks that haven't succeeded yet
           tasksForThisAttempt.push({ originalIndex: i, textChunk: textChunks[i] });
         }
       }
 
       if (tasksForThisAttempt.length === 0) {
         allChunksSucceeded = true;
-        console.log("✅ All chunks generated successfully in previous attempts.");
+        console.log("✅ All chunks generated successfully in previous overall attempts.");
         break; // All chunks done
       }
 
-      console.log(`🌀 Generating ${tasksForThisAttempt.length} chunks in attempt ${attempt}...`);
-      const chunkGenerationPromises = tasksForThisAttempt.map(task => 
-        generateSingleAudioChunk(task.originalIndex, task.textChunk, provider, providerSpecificArgs, tempDirForRequest)
-      );
+      console.log(`🌀 In Overall Attempt ${attempt}, ${tasksForThisAttempt.length} chunks pending. Processing in batches of up to ${CHUNK_PROCESSING_BATCH_SIZE}.`);
 
-      const results = await Promise.allSettled(chunkGenerationPromises);
+      // Process tasksForThisAttempt in batches
+      for (let batchStartIndex = 0; batchStartIndex < tasksForThisAttempt.length; batchStartIndex += CHUNK_PROCESSING_BATCH_SIZE) {
+        const currentBatchTasks = tasksForThisAttempt.slice(batchStartIndex, batchStartIndex + CHUNK_PROCESSING_BATCH_SIZE);
 
-      results.forEach((result, promiseIndex) => {
-        const task = tasksForThisAttempt[promiseIndex]; // Get the original task for this promise
-        if (result.status === 'fulfilled') {
-          console.log(`✅ Chunk ${task.originalIndex} (Attempt ${attempt}) succeeded: ${result.value}`);
-          successfulChunkPaths[task.originalIndex] = result.value;
-          if (!allGeneratedChunkPathsForCleanup.includes(result.value)) {
-            allGeneratedChunkPathsForCleanup.push(result.value);
+        console.log(`  Attempting batch of ${currentBatchTasks.length} chunks (starting from task index ${batchStartIndex} of ${tasksForThisAttempt.length} pending tasks for this overall attempt).`);
+        
+        const chunkGenerationPromises = currentBatchTasks.map(task => 
+          generateSingleAudioChunk(task.originalIndex, task.textChunk, provider, providerSpecificArgs, tempDirForRequest)
+        );
+
+        const results = await Promise.allSettled(chunkGenerationPromises);
+
+        results.forEach((result, promiseIndex) => {
+          const task = currentBatchTasks[promiseIndex]; // Get the original task for this promise
+          if (result.status === 'fulfilled') {
+            console.log(`    ✅ Chunk ${task.originalIndex} (Overall Attempt ${attempt}) succeeded: ${result.value}`);
+            successfulChunkPaths[task.originalIndex] = result.value;
+            if (!allGeneratedChunkPathsForCleanup.includes(result.value)) {
+              allGeneratedChunkPathsForCleanup.push(result.value);
+            }
+          } else {
+            console.error(`    ❌ Chunk ${task.originalIndex} (Overall Attempt ${attempt}) failed:`, result.reason);
+            // This chunk will be picked up in tasksForThisAttempt in the next overall attempt, if applicable.
           }
-        } else {
-          console.error(`❌ Chunk ${task.originalIndex} (Attempt ${attempt}) failed:`, result.reason);
-          // The failed chunk's temporary file (if any) is handled by generateSingleAudioChunk's own error handling
-        }
-      });
+        });
 
-      // Check if all chunks are now successful
-      if (successfulChunkPaths.every(p => p !== null)) {
-        allChunksSucceeded = true;
-        console.log("✅ All chunks generated successfully after attempt ${attempt}.");
-        break;
+        // Check if all chunks (globally) are now successful
+        if (successfulChunkPaths.every(p => p !== null)) {
+          allChunksSucceeded = true;
+          console.log("✅ All chunks generated successfully after this batch.");
+          break; // Break from batch loop (currentBatchTasks loop)
+        }
+
+        // If there are more batches to process IN THIS CURRENT LIST (tasksForThisAttempt)
+        if (batchStartIndex + CHUNK_PROCESSING_BATCH_SIZE < tasksForThisAttempt.length) {
+          console.log(`  ⏱️ Batch processed. Waiting ${DELAY_AFTER_CHUNK_BATCH_MS / 1000}s before next batch in this overall attempt...`);
+          await new Promise(resolve => setTimeout(resolve, DELAY_AFTER_CHUNK_BATCH_MS));
+        }
+      } // End of batch loop for tasksForThisAttempt
+
+      if (allChunksSucceeded) {
+        break; // Break from overall attempt loop
       }
 
-      if (attempt < MAX_CHUNK_GENERATION_ATTEMPTS && tasksForThisAttempt.length > 0) {
-        console.log(`⏱️ Waiting ${RETRY_DELAY_MS}ms before next attempt...`);
+      // If this overall attempt is not the last one, and there are still failed chunks, wait RETRY_DELAY_MS
+      const remainingFailedChunks = successfulChunkPaths.filter(p => p === null).length;
+      if (attempt < MAX_CHUNK_GENERATION_ATTEMPTS && remainingFailedChunks > 0) {
+        console.log(`⏱️ Overall Attempt ${attempt} finished. Waiting ${RETRY_DELAY_MS}ms before next overall attempt for remaining ${remainingFailedChunks} chunks...`);
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       }
-    }
+    } // End of overall attempt loop
 
     const finalGeneratedPaths = successfulChunkPaths.filter(p => p !== null) as string[];
 
@@ -726,7 +748,7 @@ export async function POST(request: Request) {
       try {
           if (fs.existsSync(tempDirForRequest)) {
               await fsp.rm(tempDirForRequest, { recursive: true, force: true });
-              console.log(`�� Cleaned up request temp directory: ${tempDirForRequest}`);
+              console.log(`🚮 Cleaned up request temp directory: ${tempDirForRequest}`);
           }
       } catch (e) {
           console.warn(`⚠️ Failed to cleanup request temp directory ${tempDirForRequest}:`, e);
