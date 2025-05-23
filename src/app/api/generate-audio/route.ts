@@ -436,7 +436,7 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
   console.log(`🔤 Generating subtitles for audio: ${audioUrl}`);
   
   // Step 1: Submit the request to generate transcription
-  const ingestResponse = await fetch("https://api.shotstack.io/ingest/stage/sources", {
+  const ingestResponse = await fetch("https://api.shotstack.io/ingest/v1/sources", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -480,7 +480,7 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
     attempts++;
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds between checks
     
-    const statusResponse = await fetch(`https://api.shotstack.io/ingest/stage/sources/${jobId}`, {
+    const statusResponse = await fetch(`https://api.shotstack.io/ingest/v1/sources/${jobId}`, {
       method: "GET",
       headers: {
         "Accept": "application/json",

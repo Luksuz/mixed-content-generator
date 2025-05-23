@@ -126,7 +126,7 @@ export async function updateVideoStatusFromShotstack(videoId: string, shotstackI
 
   try {
     const shotstackApiKey = process.env.SHOTSTACK_API_KEY || "ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq";
-    const shotstackEndpoint = process.env.SHOTSTACK_ENDPOINT || "https://api.shotstack.io/edit/stage";
+    const shotstackEndpoint = process.env.SHOTSTACK_ENDPOINT || "https://api.shotstack.io/edit/v1";
     
     // Call Shotstack API to get the render status
     const response = await fetch(`${shotstackEndpoint}/render/${shotstackId}`, {
