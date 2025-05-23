@@ -472,7 +472,7 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
   let isComplete = false;
   let subtitlesUrl = null;
   let attempts = 0;
-  const maxAttempts = 30; // Maximum 30 attempts (2.5 minutes at 5-second intervals)
+  const maxAttempts = 300; // Maximum 100 attempts (10 minutes at 5-second intervals)
   
   console.log("⏳ Waiting for transcription to complete...");
   

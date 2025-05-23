@@ -125,16 +125,22 @@ export async function updateVideoStatusFromShotstack(videoId: string, shotstackI
   }
 
   try {
-    const shotstackApiKey = process.env.SHOTSTACK_API_KEY || "ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq";
-    const shotstackEndpoint = process.env.SHOTSTACK_ENDPOINT || "https://api.shotstack.io/edit/v1";
+    const shotstackApiKey = process.env.SHOTSTACK_API_KEY;
+    const shotstackEndpoint = "https://api.shotstack.io/edit/v1";
+
+    if (!shotstackApiKey) {
+      console.error("Shotstack API key is not defined. Cannot update video status.");
+      return null;
+    }
     
     // Call Shotstack API to get the render status
+    console.log(`Calling Shotstack API to get the render status for ${shotstackId}`);
     const response = await fetch(`${shotstackEndpoint}/render/${shotstackId}`, {
       method: "GET",
-      headers: {
+      headers: new Headers({
         "Content-Type": "application/json",
         "x-api-key": shotstackApiKey
-      }
+      })
     });
 
     if (!response.ok) {
