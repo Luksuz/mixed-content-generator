@@ -188,97 +188,21 @@ const GeneratorsPage = () => {
 
   // Moved image generation logic to GeneratorsPage
   const handleStartImageGeneration = async (provider: ImageProvider, numberOfImagesPerPrompt: number, manualSinglePrompt?: string) => {
-    // If using mock data, simulate loading and return mock image sets
-    if (USE_MOCK_DATA) {
-      setIsGeneratingImages(true);
-      setImageGenerationError(null);
-      setCurrentImageGeneratingInfo("Generating images from your prompts...");
-      
-      // Simulate API call delay
-      await simulateLoading(20000); // 20 seconds as requested
-      
-      // Set the mock image data after simulation
-      setGeneratedImageSetsList(mockGeneratedImageSets);
-      console.log(`Successfully generated ${mockGeneratedImageSets.length} mock image sets`);
-      
-      setIsGeneratingImages(false);
-      setCurrentImageGeneratingInfo(null);
-      return;
-    }
-    
-    // Determine which prompts to use
-    let promptsForGeneration: string[] = [];
-    
-    if (manualSinglePrompt) {
-      // Check if we have a combined prompt with our separator
-      if (manualSinglePrompt.includes('|||||')) {
-        promptsForGeneration = manualSinglePrompt.split('|||||');
-      } else {
-        promptsForGeneration = [manualSinglePrompt];
-      }
-    } else if (imagePrompts && imagePrompts.length > 0) {
-      promptsForGeneration = imagePrompts;
-    }
-
-    if (promptsForGeneration.length === 0) {
-      setImageGenerationError('No prompts available to generate images. Please use the script generator or enter a description.');
-      return;
-    }
-
+    // Always use mock data - simulate loading and return mock image sets
     setIsGeneratingImages(true);
     setImageGenerationError(null);
-    setGeneratedImageSetsList([]); 
-    setCurrentImageGeneratingInfo(`Generating ${numberOfImagesPerPrompt} image${numberOfImagesPerPrompt > 1 ? 's' : ''} for ${promptsForGeneration.length} prompt${promptsForGeneration.length > 1 ? 's' : ''}...`);
+    setCurrentImageGeneratingInfo("Generating images from your prompts...");
     
-    try {
-      // Use the new batch processing endpoint with rate limiting
-      const response = await fetch('/api/generate-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          prompts: promptsForGeneration,
-          minimaxAspectRatio: "16:9",
-          userId: actualUserId || 'unknown_user',
-          numberOfImagesPerPrompt
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate images');
-      }
-
-      const data = await response.json();
-      
-      if (data.imageUrls && Array.isArray(data.imageUrls)) {
-        // Convert the flat array of image URLs to a GeneratedImageSet format
-        const newImageSet: GeneratedImageSet = {
-          originalPrompt: promptsForGeneration.join(' | '),
-          imageUrls: data.imageUrls,
-          imageData: []
-        };
-        
-        setGeneratedImageSetsList([newImageSet]);
-        console.log(`Successfully generated ${data.imageUrls.length} images`);
-        
-        // Log any failed prompts
-        if (data.failedPrompts && data.failedPrompts.length > 0) {
-          console.warn(`${data.failedPrompts.length} prompts failed to generate:`, 
-            data.failedPrompts.map((f: {index: number; prompt: string; error?: string}) => 
-              `Index ${f.index}: ${f.prompt.substring(0, 30)}... - ${f.error}`).join('\n'));
-        }
-      } else {
-        setImageGenerationError('Received invalid response from image generation service');
-      }
-    } catch (err: any) {
-      const errorMsg = err.message || 'An unexpected error occurred during image generation';
-      console.error('Image generation error:', err);
-      setImageGenerationError(errorMsg);
-    } finally {
-      setIsGeneratingImages(false);
-      setCurrentImageGeneratingInfo(null);
-    }
+    // Simulate API call delay
+    await simulateLoading(20000); // 20 seconds as requested
+    
+    // Set the mock image data after simulation
+    setGeneratedImageSetsList(mockGeneratedImageSets);
+    console.log(`Successfully generated ${mockGeneratedImageSets.length} mock image sets`);
+    
+    setIsGeneratingImages(false);
+    setCurrentImageGeneratingInfo(null);
+    return;
   };
 
   // Add a function to handle regenerating selected images
