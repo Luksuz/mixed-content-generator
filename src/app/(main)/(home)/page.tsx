@@ -35,13 +35,13 @@ import {
   simulateLoading
 } from "@/lib/mock-data";
 
-// // Import new tab components
-// import IdeationTab from "./components/IdeationTab";
-// import MusicTab from "./components/MusicTab";
-// import YoutubeUploadTab from "./components/YoutubeUploadTab";
-// import ReinforcedLearningTab from "./components/ReinforcedLearningTab";
-// import ContentRepackagerTab from "./components/ContentRepackagerTab";
-// import VisualAssetVaultTab from "./components/VisualAssetVaultTab";
+// Import new tab components
+import IdeationTab from "./components/IdeationTab";
+import MusicTab from "./components/MusicTab";
+import YoutubeUploadTab from "./components/YoutubeUploadTab";
+import ReinforcedLearningTab from "./components/ReinforcedLearningTab";
+import ContentRepackagerTab from "./components/ContentRepackagerTab";
+import VisualAssetVaultTab from "./components/VisualAssetVaultTab";
 
 // Determine if we should use mock data
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_NODE_ENV === 'development'
@@ -679,7 +679,7 @@ const GeneratorsPage = () => {
                   </Card>
                 </div>
               )}
-{/* 
+
               {activeTab === "ideation" && (
                 <div className="animate-fadeIn">
                   <IdeationTab />
@@ -709,7 +709,7 @@ const GeneratorsPage = () => {
                 <div className="animate-fadeIn">
                   <VisualAssetVaultTab />
                 </div>
-              )} */}
+              )}
 
               <VideoStatus jobs={videoJobs} isLoading={isLoadingJobs} />
             </div>

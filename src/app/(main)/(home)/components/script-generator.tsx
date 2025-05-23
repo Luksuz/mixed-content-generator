@@ -40,6 +40,15 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null);
   const [regeneratePrompt, setRegeneratePrompt] = useState("");
   
+  // New state variables for advanced options
+  const [videoFormat, setVideoFormat] = useState("Explainer");
+  const [toneOfVoice, setToneOfVoice] = useState("");
+  const [targetEmotion, setTargetEmotion] = useState("");
+  const [hookStyle, setHookStyle] = useState("Emotional");
+  const [retentionStructure, setRetentionStructure] = useState("");
+  const [callToAction, setCallToAction] = useState("");
+  const [pointOfView, setPointOfView] = useState("1st Person");
+  
   // Store form values in localStorage to persist between renders
   useEffect(() => {
     // Load saved values from localStorage on initial component mount
@@ -48,12 +57,26 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     const savedTheme = localStorage.getItem('scriptGenerator.theme');
     const savedAdditionalPrompt = localStorage.getItem('scriptGenerator.additionalPrompt');
     const savedForbiddenWords = localStorage.getItem('scriptGenerator.forbiddenWords');
+    const savedVideoFormat = localStorage.getItem('scriptGenerator.videoFormat');
+    const savedToneOfVoice = localStorage.getItem('scriptGenerator.toneOfVoice');
+    const savedTargetEmotion = localStorage.getItem('scriptGenerator.targetEmotion');
+    const savedHookStyle = localStorage.getItem('scriptGenerator.hookStyle');
+    const savedRetentionStructure = localStorage.getItem('scriptGenerator.retentionStructure');
+    const savedCallToAction = localStorage.getItem('scriptGenerator.callToAction');
+    const savedPointOfView = localStorage.getItem('scriptGenerator.pointOfView');
     
     if (savedTitle) setTitle(savedTitle);
     if (savedWordCount) setWordCount(parseInt(savedWordCount));
     if (savedTheme) setTheme(savedTheme);
     if (savedAdditionalPrompt) setAdditionalPrompt(savedAdditionalPrompt);
     if (savedForbiddenWords) setForbiddenWords(savedForbiddenWords);
+    if (savedVideoFormat) setVideoFormat(savedVideoFormat);
+    if (savedToneOfVoice) setToneOfVoice(savedToneOfVoice);
+    if (savedTargetEmotion) setTargetEmotion(savedTargetEmotion);
+    if (savedHookStyle) setHookStyle(savedHookStyle);
+    if (savedRetentionStructure) setRetentionStructure(savedRetentionStructure);
+    if (savedCallToAction) setCallToAction(savedCallToAction);
+    if (savedPointOfView) setPointOfView(savedPointOfView);
   }, []);
   
   // Save form values to localStorage when they change
@@ -63,7 +86,14 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     localStorage.setItem('scriptGenerator.theme', theme);
     localStorage.setItem('scriptGenerator.additionalPrompt', additionalPrompt);
     localStorage.setItem('scriptGenerator.forbiddenWords', forbiddenWords);
-  }, [title, wordCount, theme, additionalPrompt, forbiddenWords]);
+    localStorage.setItem('scriptGenerator.videoFormat', videoFormat);
+    localStorage.setItem('scriptGenerator.toneOfVoice', toneOfVoice);
+    localStorage.setItem('scriptGenerator.targetEmotion', targetEmotion);
+    localStorage.setItem('scriptGenerator.hookStyle', hookStyle);
+    localStorage.setItem('scriptGenerator.retentionStructure', retentionStructure);
+    localStorage.setItem('scriptGenerator.callToAction', callToAction);
+    localStorage.setItem('scriptGenerator.pointOfView', pointOfView);
+  }, [title, wordCount, theme, additionalPrompt, forbiddenWords, videoFormat, toneOfVoice, targetEmotion, hookStyle, retentionStructure, callToAction, pointOfView]);
 
   // Calculate word count when full script changes
   const updateScriptWordCount = (script: string) => {
@@ -549,6 +579,101 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           </div>
 
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="videoFormat" className="glow-text-red">Video Format</Label>
+                <select
+                  id="videoFormat"
+                  value={videoFormat}
+                  onChange={(e) => setVideoFormat(e.target.value)}
+                  className="futuristic-input w-full"
+                >
+                  <option value="Explainer">Explainer</option>
+                  <option value="Storytelling">Storytelling</option>
+                  <option value="Documentary">Documentary</option>
+                  <option value="Drama">Drama</option>
+                  <option value="Romance">Romance</option>
+                  <option value="Fitness">Fitness</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="hookStyle" className="glow-text-red">Hook Style</Label>
+                <select
+                  id="hookStyle"
+                  value={hookStyle}
+                  onChange={(e) => setHookStyle(e.target.value)}
+                  className="futuristic-input w-full"
+                >
+                  <option value="Emotional">Emotional</option>
+                  <option value="Shocking">Shocking</option>
+                  <option value="Mysterious">Mysterious</option>
+                  <option value="Question-based">Question-based</option>
+                  <option value="Psychological">Psychological</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="toneOfVoice" className="glow-text-red">Tone of Voice</Label>
+                <Input
+                  id="toneOfVoice"
+                  placeholder="e.g., Enthusiastic, Calm, Humorous"
+                  value={toneOfVoice}
+                  onChange={(e) => setToneOfVoice(e.target.value)}
+                  className="futuristic-input"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="targetEmotion" className="glow-text-red">Target Emotion</Label>
+                <Input
+                  id="targetEmotion"
+                  placeholder="e.g., Joy, Surprise, Curiosity"
+                  value={targetEmotion}
+                  onChange={(e) => setTargetEmotion(e.target.value)}
+                  className="futuristic-input"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="retentionStructure" className="glow-text-red">Retention Structure</Label>
+              <Textarea
+                id="retentionStructure"
+                placeholder="Describe how to maintain audience engagement (e.g., cliffhangers, storytelling arcs)"
+                value={retentionStructure}
+                onChange={(e) => setRetentionStructure(e.target.value)}
+                className="min-h-[80px] futuristic-input"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="callToAction" className="glow-text-red">Call to Action (CTA)</Label>
+              <Input
+                id="callToAction"
+                placeholder="e.g., Subscribe, Visit our website, Share this video"
+                value={callToAction}
+                onChange={(e) => setCallToAction(e.target.value)}
+                className="futuristic-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+                <Label htmlFor="pointOfView" className="glow-text-red">Point of View</Label>
+                <select
+                  id="pointOfView"
+                  value={pointOfView}
+                  onChange={(e) => setPointOfView(e.target.value)}
+                  className="futuristic-input w-full"
+                >
+                  <option value="1st Person">1st Person</option>
+                  <option value="3rd Person">3rd Person</option>
+                </select>
+              </div>
+
             <div className="space-y-2">
               <Label htmlFor="inspirationalTranscript" className="glow-text-red">Inspirational Video Transcript</Label>
               <Textarea

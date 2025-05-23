@@ -235,7 +235,6 @@ const VideoStatus: React.FC<VideoStatusProps> = ({ jobs, isLoading }) => {
     <Card className="mt-8 futuristic-card relative overflow-hidden animate-fadeIn shadow-glow-red">
       {/* Background blobs */}
       <div className="blob w-[250px] h-[250px] top-0 -right-20 opacity-10"></div>
-      <div className="blob-red w-[200px] h-[200px] -bottom-10 -left-10 opacity-10"></div>
 
       <CardHeader className="relative z-10 border-b border-red-700/20">
         <CardTitle className="gradient-text flex items-center gap-2">
