@@ -18,8 +18,13 @@ const GENERATED_AUDIO_DIR_NAME = "generated-audio"; // Main directory for final 
 const MAX_CHUNK_GENERATION_ATTEMPTS = 3; // 1 initial try + 2 retries
 const RETRY_DELAY_MS = 1500; // Delay between retry attempts
 
-const CHUNK_PROCESSING_BATCH_SIZE = 10; // New: Max chunks to process before a potential 1-min delay
-const DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1000; // New: 1 minute delay
+const DEFAULT_CHUNK_PROCESSING_BATCH_SIZE = 5; // Renamed from CHUNK_PROCESSING_BATCH_SIZE
+const DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // Renamed from DELAY_AFTER_CHUNK_BATCH_MS (Default: 66 seconds)
+
+// ElevenLabs specific limits
+const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 10000; // Max characters per chunk for ElevenLabs (reverted to 10000)
+const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 100;
+const ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // 1 minute
 
 const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
 
@@ -145,7 +150,6 @@ async function generateSingleAudioChunk(
         break;
 
       case "minimax":
-        console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${voice}, model=${model}`);
         const minimaxTTSModel = model || "speech-02-hd";
         console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${voice}, model=${minimaxTTSModel}`);
         const minimaxResponse = await fetch(`https://api.minimaxi.chat/v1/t2a_v2?GroupId=${MINIMAX_GROUP_ID}`, {
@@ -242,7 +246,8 @@ async function generateSingleAudioChunk(
     return tempFilePath;
 
   } catch (error: any) {
-    let detailedErrorMessage = error.message || 'Unknown error';
+    const basicErrorMessage = error.message || 'Unknown error';
+    let detailedErrorMessage = basicErrorMessage;
     
     // Attempt to extract more details from common error structures
     if (error.response && typeof error.response === 'object') { // e.g., Axios-style errors
@@ -260,6 +265,26 @@ async function generateSingleAudioChunk(
      // For other generic errors, error.message is primary. Adding stack if available.
 
     console.error(`❌ Error in generateSingleAudioChunk for provider ${provider} [Chunk ${chunkIndex}]: ${detailedErrorMessage}`, error.stack ? `\nCall Stack: ${error.stack}` : '');
+    
+    // If it's an ElevenLabs error and our detailed parsing didn't add much beyond the basic message, log the full error object.
+    if (provider === "elevenlabs" && detailedErrorMessage === basicErrorMessage) {
+      try {
+        // Create an object with all properties of the error, including non-enumerable ones
+        const errorAsObject = Object.getOwnPropertyNames(error).reduce((acc, key) => {
+          acc[key] = error[key];
+          return acc;
+        }, {} as Record<string, any>);
+        console.error(`🔬 ElevenLabs raw error object for chunk ${chunkIndex}: ${JSON.stringify(errorAsObject, null, 2)}`);
+      } catch (stringifyError) {
+        // Fallback if custom stringification fails
+        console.error(`🔬 ElevenLabs raw error object for chunk ${chunkIndex} (could not stringify custom object, logging directly):`, error);
+      }
+    }
+
+    // Log the problematic text chunk specifically for Google TTS errors
+    if (provider === "google-tts" && (error.message || '').includes("sentences that are too long")) {
+      console.error(`❗Problematic Google TTS text chunk ${chunkIndex} content: \"${textChunk}\"`);
+    }
     
     try { if (fs.existsSync(tempFilePath)) await fsp.rm(tempFilePath); } catch (e) { console.warn(`🧹 Failed to cleanup temp file ${tempFilePath} after error:`, e); }
     throw error; 
@@ -541,7 +566,7 @@ export async function POST(request: Request) {
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, userId=${userId}, text length=${text?.length || 0}`);
   // Log ElevenLabs specific details if applicable
   if (provider === "elevenlabs") {
-    console.log(`�� ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
+    console.log(`🧪 ElevenLabs details: model=${elevenLabsModelId}${languageCode ? `, language=${languageCode}` : ""}`);
   }
   if (provider === "google-tts") {
     console.log(`🇬☁️ Google TTS details: voice=${googleTtsVoiceName}, language=${googleTtsLanguageCode || languageCode}`);
@@ -561,8 +586,9 @@ export async function POST(request: Request) {
   let audioDuration = 0; // Declare audioDuration here
 
   try {
-    const textChunks = chunkText(text);
-    console.log(`📝 Text split into ${textChunks.length} chunks.`);
+    const currentChunkMaxLength = provider === "elevenlabs" ? ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH : AUDIO_CHUNK_MAX_LENGTH;
+    const textChunks = chunkText(text, currentChunkMaxLength);
+    console.log(`📝 Text split into ${textChunks.length} chunks (max length: ${currentChunkMaxLength}).`);
 
     if (textChunks.length === 0) {
       return NextResponse.json({ error: "No text content to process after chunking." }, { status: 400 });
@@ -593,11 +619,14 @@ export async function POST(request: Request) {
         break; // All chunks done
       }
 
-      console.log(`🌀 In Overall Attempt ${attempt}, ${tasksForThisAttempt.length} chunks pending. Processing in batches of up to ${CHUNK_PROCESSING_BATCH_SIZE}.`);
+      const currentBatchSize = provider === "elevenlabs" ? ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE : DEFAULT_CHUNK_PROCESSING_BATCH_SIZE;
+      const currentDelayAfterBatch = provider === "elevenlabs" ? ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS : DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS;
+
+      console.log(`🌀 In Overall Attempt ${attempt}, ${tasksForThisAttempt.length} chunks pending. Processing in batches of up to ${currentBatchSize}. Delay between batches: ${currentDelayAfterBatch/1000}s.`);
 
       // Process tasksForThisAttempt in batches
-      for (let batchStartIndex = 0; batchStartIndex < tasksForThisAttempt.length; batchStartIndex += CHUNK_PROCESSING_BATCH_SIZE) {
-        const currentBatchTasks = tasksForThisAttempt.slice(batchStartIndex, batchStartIndex + CHUNK_PROCESSING_BATCH_SIZE);
+      for (let batchStartIndex = 0; batchStartIndex < tasksForThisAttempt.length; batchStartIndex += currentBatchSize) {
+        const currentBatchTasks = tasksForThisAttempt.slice(batchStartIndex, batchStartIndex + currentBatchSize);
 
         console.log(`  Attempting batch of ${currentBatchTasks.length} chunks (starting from task index ${batchStartIndex} of ${tasksForThisAttempt.length} pending tasks for this overall attempt).`);
         
@@ -629,9 +658,9 @@ export async function POST(request: Request) {
         }
 
         // If there are more batches to process IN THIS CURRENT LIST (tasksForThisAttempt)
-        if (batchStartIndex + CHUNK_PROCESSING_BATCH_SIZE < tasksForThisAttempt.length) {
-          console.log(`  ⏱️ Batch processed. Waiting ${DELAY_AFTER_CHUNK_BATCH_MS / 1000}s before next batch in this overall attempt...`);
-          await new Promise(resolve => setTimeout(resolve, DELAY_AFTER_CHUNK_BATCH_MS));
+        if (batchStartIndex + currentBatchSize < tasksForThisAttempt.length) {
+          console.log(`  ⏱️ Batch processed. Waiting ${currentDelayAfterBatch / 1000}s before next batch in this overall attempt...`);
+          await new Promise(resolve => setTimeout(resolve, currentDelayAfterBatch));
         }
       } // End of batch loop for tasksForThisAttempt
 
