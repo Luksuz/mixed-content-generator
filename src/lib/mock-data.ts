@@ -294,48 +294,58 @@ export const mockProviders: ImageProvider[] = ["openai", "minimax"];
 // Mock Image Data
 export const mockGeneratedImageSets: GeneratedImageSet[] = [
   {
-    originalPrompt: "Futuristic cityscape with AI-powered interfaces integrated into daily life, holographic displays, and people interacting with AI assistants, photorealistic, cinematic lighting, high detail",
+    originalPrompt: "AI Generated Images Collection",
     imageUrls: [
       "/image_gen/generated_image_0_0.png",
-      "/image_gen/generated_image_0_1.png"
-    ],
-    imageData: []
-  },
-  {
-    originalPrompt: "Split-screen showing: 1) Doctors using AI diagnostic tools with medical holographic displays, 2) Students learning with AI tutors in a futuristic classroom, 3) Self-driving vehicles navigating a smart city, cinematic, photorealistic",
-    imageUrls: [
+      "/image_gen/generated_image_0_1.png",
       "/image_gen/generated_image_0_2.png",
-      "/image_gen/generated_image_0_3.png"
-    ],
-    imageData: []
-  },
-  {
-    originalPrompt: "Advanced humanoid robots working alongside humans in a clean, bright laboratory environment with holographic displays showing AI code and neural networks, utopian future, high-tech aesthetic, photorealistic",
-    imageUrls: [
+      "/image_gen/generated_image_0_3.png",
       "/image_gen/generated_image_0_4.png",
-      "/image_gen/generated_image_0_5.png"
-    ],
-    imageData: []
-  },
-  {
-    originalPrompt: "Philosophy discussion panel with diverse experts debating AI ethics, with visual metaphor of balanced scales containing human brain and circuit board, dramatic lighting, thought-provoking, realistic style",
-    imageUrls: [
-      "/image_gen/generated_image_0_6.png"
-    ],
-    imageData: []
-  },
-  {
-    originalPrompt: "Sunrise over futuristic cityscape with harmonious integration of nature and technology, hopeful scene showing humans and AI systems coexisting peacefully, golden hour lighting, inspirational",
-    imageUrls: [
+      "/image_gen/generated_image_0_5.png",
+      "/image_gen/generated_image_0_6.png",
       "/image_gen/generated_image_0_7.png",
-      "/image_gen/generated_image_0_8.png"
-    ],
-    imageData: []
-  },
-  {
-    originalPrompt: "A woman with headphones sitting at a desk with multiple holographic screens displaying voice analysis software and waveforms, glowing blue and purple interface, futuristic audio recording studio",
-    imageUrls: [
-      "/image_gen/generated_image_0_9.png"
+      "/image_gen/generated_image_0_8.png",
+      "/image_gen/generated_image_0_9.png",
+      "/image_gen/generated_image_0_10.png",
+      "/image_gen/generated_image_0_11.png",
+      "/image_gen/generated_image_0_12.png",
+      "/image_gen/generated_image_0_13.png",
+      "/image_gen/generated_image_0_14.png",
+      "/image_gen/generated_image_0_15.png",
+      "/image_gen/generated_image_0_16.png",
+      "/image_gen/generated_image_0_17.png",
+      "/image_gen/generated_image_0_18.png",
+      "/image_gen/generated_image_0_19.png",
+      "/image_gen/generated_image_0_20.png",
+      "/image_gen/generated_image_0_21.png",
+      "/image_gen/generated_image_0_22.png",
+      "/image_gen/generated_image_0_23.png",
+      "/image_gen/generated_image_0_24.png",
+      "/image_gen/generated_image_0_25.png",
+      "/image_gen/generated_image_0_26.png",
+      "/image_gen/generated_image_0_27.png",
+      "/image_gen/generated_image_0_28.png",
+      "/image_gen/generated_image_0_29.png",
+      "/image_gen/generated_image_0_30.png",
+      "/image_gen/generated_image_0_31.png",
+      "/image_gen/generated_image_0_32.png",
+      "/image_gen/generated_image_0_33.png",
+      "/image_gen/generated_image_0_34.png",
+      "/image_gen/generated_image_0_35.png",
+      "/image_gen/generated_image_0_36.png",
+      "/image_gen/generated_image_0_37.png",
+      "/image_gen/generated_image_0_38.png",
+      "/image_gen/generated_image_0_39.png",
+      "/image_gen/generated_image_0_40.png",
+      "/image_gen/generated_image_0_41.png",
+      "/image_gen/generated_image_0_42.png",
+      "/image_gen/generated_image_0_43.png",
+      "/image_gen/generated_image_0_44.png",
+      "/image_gen/generated_image_0_45.png",
+      "/image_gen/generated_image_0_46.png",
+      "/image_gen/generated_image_0_47.png",
+      "/image_gen/generated_image_0_48.png",
+      "/image_gen/generated_image_0_49.png"
     ],
     imageData: []
   }
@@ -425,18 +435,19 @@ export const simulateThumbnailGeneration = async (prompt: string): Promise<strin
 };
 
 // Mock Video Data
-export const mockVideoUrl = "/mock-video/video.mp4"; // Assuming you will add a local video file here
+export const mockVideoUrl = "https://shotstack-api-v1-output.s3-ap-southeast-2.amazonaws.com/5yhj4ndx70/4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4";
 
 // Mock Video Jobs
 export const mockVideoJobs: VideoJob[] = [
   {
     id: "video-12345",
     status: "completed",
-    videoUrl: "/mock-video/video.mp4", // Or local path
+    videoUrl: "https://shotstack-api-v1-output.s3-ap-southeast-2.amazonaws.com/5yhj4ndx70/4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4",
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
     updatedAt: new Date(Date.now() - 6.5 * 24 * 60 * 60 * 1000), // 6.5 days ago
     user_id: "user-123",
-    thumbnail_url: "/image_gen/generated_image_0_16.png" // Using one of your images
+    thumbnail_url: "/image_gen/generated_image_0_1.png", // Using one of your images as thumbnail
+    subtitles_url: "/mock-audio/audio.mp3" // Adding subtitles reference
   },
   {
     id: "video-23456",

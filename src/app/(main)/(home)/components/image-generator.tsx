@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Sparkles, AlertCircle, CheckCircle } from "lucide-react";
-import { simulateThumbnailGeneration, mockGeneratedImageSets, simulateImageGenerationLoading } from "@/lib/mock-data";
+import { simulateThumbnailGeneration, mockGeneratedImageSets } from "@/lib/mock-data";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -66,12 +66,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   
-  // Local loading state for mock mode
-  const [isLocallyGenerating, setIsLocallyGenerating] = useState(false);
-  
-  // Check if we're in mock data mode
-  const isMockMode = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
-  
   // Update the default number of images when the prop changes
   useEffect(() => {
     setNumImagesPerPrompt(numberOfImagesPerPrompt);
@@ -97,15 +91,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       return;
     }
 
-    if (isMockMode) {
-      setIsLocallyGenerating(true);
-      onImageSetsGenerated([]); // Clear previous images
-      await simulateImageGenerationLoading();
-      onImageSetsGenerated(mockGeneratedImageSets);
-      setIsLocallyGenerating(false);
-    } else {
-      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, promptsToUse);
-    }
+    // Always call the parent's generation function
+    onStartGenerationRequest(selectedProvider, numImagesPerPrompt, promptsToUse);
   };
   
   const toggleSectionSelection = (index: number) => {
@@ -193,7 +180,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
     try {
       // Use mock data in development mode
-      if (isMockMode) {
+      if (process.env.NODE_ENV === 'development') {
         const mockThumbnailUrl = await simulateThumbnailGeneration(thumbnailPrompt);
         setThumbnailUrl(mockThumbnailUrl);
         
@@ -244,7 +231,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   };
 
   // Determine overall loading state
-  const currentlyGenerating = isMockMode ? isLocallyGenerating : isLoadingImages;
+  const currentlyGenerating = isLoadingImages;
 
   return (
     <Tabs defaultValue="image-generation" className="space-y-8">

@@ -8,6 +8,11 @@ import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle, Pl
 import { useState, useEffect, useMemo } from "react";
 import { GeneratedImageSet } from "@/types/image-generation";
 import { motion } from "framer-motion";
+import {
+  mockVideoUrl,
+  mockThumbnailUrl,
+  simulateVideoGenerationLoading,
+} from "@/lib/mock-data";
 
 interface VideoGeneratorProps {
   availableImageSets: GeneratedImageSet[];
@@ -15,6 +20,7 @@ interface VideoGeneratorProps {
   generatedVideoUrl: string | null;
   videoGenerationError: string | null;
   onStartVideoCreation: (selectedImageUrls: string[]) => Promise<void>;
+  onVideoGenerated?: (videoUrl: string | null) => void;
   thumbnailUrl?: string | null;
 }
 
@@ -26,11 +32,16 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   generatedVideoUrl,
   videoGenerationError,
   onStartVideoCreation,
+  onVideoGenerated,
   thumbnailUrl,
 }) => {
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
+
+  const [isLocallyGenerating, setIsLocallyGenerating] = useState(false);
+
+  const isMockMode = process.env.NODE_ENV === 'development';
 
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
@@ -56,16 +67,32 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
     if (selectedImageUrls.length === 0) {
       setLocalError("Please select at least one image to create a video.");
       return;
-        }
+    }
     setLocalError(null);
     setShowSuccessMessage(false);
-    await onStartVideoCreation(selectedImageUrls);
-    setShowSuccessMessage(true);
+
+    if (isMockMode) {
+      setIsLocallyGenerating(true);
+      if (onVideoGenerated) {
+        onVideoGenerated(null);
+      }
+      setShowSuccessMessage(true);
+      await simulateVideoGenerationLoading();
+      if (onVideoGenerated) {
+        onVideoGenerated(mockVideoUrl);
+      }
+      setIsLocallyGenerating(false);
+    } else {
+      await onStartVideoCreation(selectedImageUrls);
+      setShowSuccessMessage(true);
+    }
   };
 
   useEffect(() => {
     setSelectedImageUrls(prevSelected => prevSelected.filter(url => allImageUrls.includes(url)));
   }, [allImageUrls]);
+
+  const currentlyGenerating = isMockMode ? isLocallyGenerating : isGeneratingVideo;
 
   // Hide success message after 10 seconds
   useEffect(() => {
@@ -167,7 +194,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </motion.div>
             )}
 
-            {showSuccessMessage && !isGeneratingVideo && !videoGenerationError && (
+            {showSuccessMessage && !currentlyGenerating && !videoGenerationError && (
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -256,11 +283,11 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               <Button
                 className="w-full rounded-md py-6 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] relative overflow-hidden border-0 transition-all duration-300"
                 onClick={handleConfirmAndCreateVideo}
-                disabled={isGeneratingVideo || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
+                disabled={currentlyGenerating || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
                 <div className="flex items-center justify-center gap-2">
-                  {isGeneratingVideo ? (
+                  {currentlyGenerating ? (
                     <>
                       <Loader2 className="mr-1 h-5 w-5 animate-spin" />
                       <span className="text-lg font-medium">Synthesizing Video...</span>

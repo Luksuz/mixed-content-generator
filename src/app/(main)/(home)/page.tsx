@@ -32,6 +32,7 @@ import {
   mockGeneratedImageSets,
   mockVideoJobs,
   mockThumbnailUrl,
+  mockVideoUrl,
   simulateLoading
 } from "@/lib/mock-data";
 
@@ -44,7 +45,13 @@ import ContentRepackagerTab from "./components/ContentRepackagerTab";
 import VisualAssetVaultTab from "./components/VisualAssetVaultTab";
 
 // Determine if we should use mock data
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_NODE_ENV === 'development'
+const USE_MOCK_DATA = process.env.NODE_ENV === 'development';
+
+console.log('🔍 Mock Mode Debug:', {
+  NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_NODE_ENV: process.env.NEXT_PUBLIC_NODE_ENV,
+  USE_MOCK_DATA: USE_MOCK_DATA
+});
 
 // Mock user ID to use instead of the actual user ID
 const MOCK_USER_ID = "mock-user-123";
@@ -59,45 +66,46 @@ const GeneratorsPage = () => {
   // Use mock user ID instead of actual ID
   const actualUserId = USE_MOCK_DATA ? MOCK_USER_ID : (user?.id || "");
 
-  // Script Generator State
-  const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>(USE_MOCK_DATA ? mockScriptSections : []);
-  const [sharedFullScriptMarkdown, setSharedFullScriptMarkdown] = useState<string>(USE_MOCK_DATA ? mockFullScriptMarkdown : "");
-  const [sharedFullScriptCleaned, setSharedFullScriptCleaned] = useState<string>(USE_MOCK_DATA ? mockFullScriptCleaned : "");
+  // Script Generator State - Don't set mock data immediately
+  const [sharedScriptSections, setSharedScriptSections] = useState<ScriptSection[]>([]);
+  const [sharedFullScriptMarkdown, setSharedFullScriptMarkdown] = useState<string>("");
+  const [sharedFullScriptCleaned, setSharedFullScriptCleaned] = useState<string>("");
 
-  // Audio Generator State - Lifted
+  // Audio Generator State - Don't set mock data immediately
   const [isGeneratingAudio, setIsGeneratingAudio] = useState<boolean>(false);
-  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(USE_MOCK_DATA ? mockAudioUrl : null);
+  const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null);
   const [audioGenerationError, setAudioGenerationError] = useState<string | null>(null);
-  const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(USE_MOCK_DATA ? mockSubtitlesUrl : null);
+  const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(null);
 
-  // Image Generator State - Lifted
+  // Image Generator State - Don't set mock data immediately
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
-  const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>(USE_MOCK_DATA ? mockGeneratedImageSets : []);
+  const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>([]);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
   const [currentImageGeneratingInfo, setCurrentImageGeneratingInfo] = useState<string | null>(null);
-  const [imageSets, setImageSets] = useState<GeneratedImageSet[]>([]);
-  // Thumbnail State - New
-  const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(USE_MOCK_DATA ? mockThumbnailUrl : null);
+  // Thumbnail State - Don't set mock data immediately
+  const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(null);
 
   // Video Generator State - New
   const [isGeneratingVideo, setIsGeneratingVideo] = useState<boolean>(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [videoGenerationError, setVideoGenerationError] = useState<string | null>(null);
 
-  // State for video job statuses
-  const [videoJobs, setVideoJobs] = useState<VideoJob[]>(USE_MOCK_DATA ? mockVideoJobs : []);
+  // State for video job statuses - Don't set mock data immediately
+  const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(!USE_MOCK_DATA);
 
   // Fetch existing jobs on component mount
   useEffect(() => {
     const fetchJobs = async () => {
-      if (!actualUserId || USE_MOCK_DATA) {
-        if (USE_MOCK_DATA) {
-          // If using mock data, simulate a loading delay
-          setIsLoadingJobs(true);
-          await simulateLoading(1000);
-          setIsLoadingJobs(false);
-        }
+      if (!actualUserId) {
+        return;
+      }
+
+      if (USE_MOCK_DATA) {
+        // If using mock data, simulate a loading delay but don't set any jobs initially
+        setIsLoadingJobs(true);
+        await simulateLoading(1000);
+        setIsLoadingJobs(false);
         return;
       }
 
@@ -187,7 +195,11 @@ const GeneratorsPage = () => {
       setCurrentImageGeneratingInfo("Generating images from your prompts...");
       
       // Simulate API call delay
-      await simulateLoading(2000);
+      await simulateLoading(20000); // 20 seconds as requested
+      
+      // Set the mock image data after simulation
+      setGeneratedImageSetsList(mockGeneratedImageSets);
+      console.log(`Successfully generated ${mockGeneratedImageSets.length} mock image sets`);
       
       setIsGeneratingImages(false);
       setCurrentImageGeneratingInfo(null);
@@ -279,6 +291,11 @@ const GeneratorsPage = () => {
       
       // Simulate API call delay
       await simulateLoading(2500);
+      
+      // Add some additional mock images to the existing list
+      const additionalMockImages = mockGeneratedImageSets.slice(0, Math.min(prompts.length, 3)); // Add a few more images
+      setGeneratedImageSetsList(prev => [...additionalMockImages, ...prev]);
+      console.log(`Successfully regenerated ${additionalMockImages.length} mock images`);
       
       setIsGeneratingImages(false);
       setCurrentImageGeneratingInfo(null);
@@ -373,12 +390,13 @@ const GeneratorsPage = () => {
       setGeneratedVideoUrl(null);
       setVideoGenerationError(null);
       
-      // Simulate API call delay
+      // Simulate initial API call delay
       await simulateLoading(3000);
       
       // Add a new "pending" job to the list
+      const newJobId = `video-${Date.now()}`;
       const newJob: VideoJob = {
-        id: `video-${Date.now()}`,
+        id: newJobId,
         status: "pending",
         createdAt: new Date(),
         user_id: MOCK_USER_ID // Use the mock user ID consistently
@@ -386,6 +404,35 @@ const GeneratorsPage = () => {
       
       setVideoJobs(prev => [newJob, ...prev]);
       setIsGeneratingVideo(false);
+      
+      // After 10 seconds, update to processing
+      setTimeout(() => {
+        setVideoJobs(prev => prev.map(job => 
+          job.id === newJobId 
+            ? { ...job, status: "processing" as const, updatedAt: new Date() }
+            : job
+        ));
+      }, 10000);
+      
+      // After 60 seconds total, update to completed with video URL
+      setTimeout(() => {
+        setVideoJobs(prev => prev.map(job => 
+          job.id === newJobId 
+            ? { 
+                ...job, 
+                status: "completed" as const, 
+                videoUrl: mockVideoUrl,
+                thumbnail_url: "/image_gen/generated_image_0_1.png",
+                subtitles_url: mockSubtitlesUrl,
+                updatedAt: new Date()
+              }
+            : job
+        ));
+        
+        // Also set the generated video URL for the VideoGenerator component
+        setGeneratedVideoUrl(mockVideoUrl);
+        console.log(`Mock video completed: ${mockVideoUrl}`);
+      }, 60000);
       
       return;
     }
@@ -574,7 +621,7 @@ const GeneratorsPage = () => {
               className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "gdrive" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
               <Database size={20} className={activeTab === "gdrive" ? "text-red-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Drive</span>
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Text-to-video [beta]</span>
             </button>
             
             {/* Only show in development mode */}
@@ -598,11 +645,8 @@ const GeneratorsPage = () => {
             <div className="mb-8">
               <h1 className="text-3xl font-bold mb-2 gradient-text flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-red-400" />
-                AI Content Generator
+                Welcome to AI YouTube video content generator
               </h1>
-              <p className="text-muted-foreground">
-                Create amazing content using AI. Generate scripts, audio, images, and videos with ease.
-              </p>
             </div>
             
             <div className="w-full">
@@ -646,7 +690,7 @@ const GeneratorsPage = () => {
                     onStartGenerationRequest={handleStartImageGeneration}
                     onRegenerateImages={handleRegenerateImages}
                     onThumbnailGenerated={handleThumbnailGenerated}
-                    onImageSetsGenerated={setImageSets}
+                    onImageSetsGenerated={setGeneratedImageSetsList}
                   />
                 </div>
               )}

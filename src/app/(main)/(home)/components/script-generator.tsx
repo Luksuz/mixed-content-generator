@@ -39,7 +39,6 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const [additionalPrompt, setAdditionalPrompt] = useState("");
   const [inspirationalTranscript, setInspirationalTranscript] = useState("");
   const [forbiddenWords, setForbiddenWords] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [scriptWordCount, setScriptWordCount] = useState(0);
   const [uploadedScript, setUploadedScript] = useState("");
@@ -118,26 +117,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     updateScriptWordCount(currentFullScript);
   }
 
-  const handleGenerateOutline = async () => {
-    try {
-      setIsLoading(true);
-      if (onFullScriptChange) onFullScriptChange({ scriptWithMarkdown: "", scriptCleaned: "" });
-      
-      await simulateScriptGenerationLoading(); // Simulate API call delay
-
-      if (onScriptSectionsChange) {
-        onScriptSectionsChange(mockScriptSections);
-      }
-    } catch (error) {
-      console.error("Error generating script outline:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleGenerateFullScript = async () => {
-    if (currentScriptSections.length === 0) return;
-    
     try {
       setIsGeneratingScript(true);
       await simulateScriptGenerationLoading(); // Simulate API call delay
@@ -146,6 +126,11 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
         scriptWithMarkdown: mockFullScriptMarkdown,
         scriptCleaned: mockFullScriptCleaned,
       };
+
+      // Also set mock sections for compatibility with other components
+      if (onScriptSectionsChange) {
+        onScriptSectionsChange(mockScriptSections);
+      }
 
       if (onFullScriptChange) {
         onFullScriptChange(mockData);
@@ -502,27 +487,13 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
               className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-red-600/80 to-red-700/80 border-0 shadow-glow-red" 
-              onClick={handleGenerateOutline}
-              disabled={isLoading || isGeneratingScript || !title}
-            >
-              {isLoading ? "Generating..." : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Outline
-                </>
-              )}
-            </Button>
-            
-            <Button 
-              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-red-700/80 to-red-800/80 border-0 shadow-glow-red" 
-              variant="secondary"
               onClick={handleGenerateFullScript}
-              disabled={isGeneratingScript || isLoading || currentScriptSections.length === 0}
+              disabled={isGeneratingScript || !title}
             >
               {isGeneratingScript ? "Generating..." : (
                 <>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Generate Full Script
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Script
                 </>
               )}
             </Button>
@@ -690,44 +661,9 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       </Tabs>
 
       {/* Content Sections */}
-      <div className="flex flex-col lg:flex-row gap-8 relative z-10">
-        {/* Outlines Section */}
-        <div className="w-full lg:w-1/2 space-y-6 animate-slideUp">
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-              <FileText className="h-5 w-5 text-red-400" />
-              Script Outline
-            </h2>
-            <p className="text-muted-foreground">
-              Edit the generated sections to refine your script outline.
-            </p>
-          </div>
-
-          {currentScriptSections.length === 0 ? (
-            <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
-              <p className="text-muted-foreground glow-text">
-                {isLoading 
-                  ? "Generating your script sections..." 
-                  : "Generate an outline to see sections here"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4 futuristic-scrollbar overflow-y-auto max-h-[600px] pr-2">
-              {currentScriptSections.map((section, index) => (
-                <ScriptSectionCard
-                  key={index}
-                  section={section}
-                  index={index}
-                  onUpdate={(updatedSection) => handleUpdateSection(index, updatedSection)}
-                  onSelectForRegeneration={() => handleRegenerateSegment(index)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-        
-        {/* Full Script Section */}
-        <div className="w-full lg:w-1/2 space-y-6 animate-slideUp">
+      <div className="space-y-6 relative z-10">
+        {/* Full Script Section - Full Width */}
+        <div className="w-full space-y-6 animate-slideUp">
           <div className="space-y-2 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
@@ -735,7 +671,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                 Full Script
               </h2>
               <p className="text-muted-foreground">
-                The complete script based on your outline.
+                The complete script based on your settings.
               </p>
             </div>
             {currentFullScript && (
@@ -750,7 +686,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               <p className="text-muted-foreground glow-text-red">
                 {isGeneratingScript 
                   ? "Generating your full script..." 
-                  : "Generate a full script to see it here"}
+                  : "Generate a script to see it here"}
               </p>
             </div>
           ) : (

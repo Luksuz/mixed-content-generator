@@ -29,7 +29,7 @@ const Navbar = ({ selectedUserId, onUserChange }: NavbarProps) => {
       <div className="container p-4 sm:px-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-blue-400" />
-          <h5 className="font-semibold text-lg gradient-text">AI Content Generator</h5>
+          <h5 className="font-semibold text-lg gradient-text">Wizards Syndicate AI generator</h5>
         </Link>
 
         <div className="flex items-center gap-4">
