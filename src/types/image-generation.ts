@@ -1,4 +1,4 @@
-export type ImageProvider = "openai" | "minimax";
+export type ImageProvider = "openai" | "minimax" | "flux" | "gemini" | "ideogram" | "sd";
 
 export interface GenerateImageRequestBody {
   provider: ImageProvider;

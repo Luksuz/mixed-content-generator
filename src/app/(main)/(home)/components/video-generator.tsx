@@ -82,20 +82,20 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
       <Card className="border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-xl text-white relative overflow-hidden">
         {/* Ambient background elements */}
         <div className="absolute inset-0 z-0">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-500/20 via-purple-500/10 to-pink-500/20 opacity-30" />
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full filter blur-3xl opacity-10" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full filter blur-3xl opacity-10" />
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-700/20 via-red-800/10 to-red-900/20 opacity-30" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-700 rounded-full filter blur-3xl opacity-10" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-800 rounded-full filter blur-3xl opacity-10" />
         </div>
         
         <div className="relative z-10"> {/* Content wrapper */}
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-3 text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400">
+            <CardTitle className="flex items-center gap-3 text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-red-500 to-red-600">
               <motion.div
                 initial={{ rotate: -10, scale: 0.8 }}
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ duration: 0.5, type: "spring" }}
               >
-                <Film size={28} className="text-blue-400" />
+                <Film size={28} className="text-red-400" />
               </motion.div>
               <span>Neurovision™ Studio</span>
             </CardTitle>
@@ -114,8 +114,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               >
                 <div>
                   <Label className="text-lg font-semibold flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-amber-400" />
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-200 to-yellow-400">
+                    <Sparkles className="h-5 w-5 text-yellow-400" />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-yellow-400">
                       Custom Thumbnail Ready
                     </span>
                   </Label>
@@ -128,10 +128,10 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                     <img 
                       src={thumbnailUrl} 
                       alt="Custom Video Thumbnail"
-                      className="object-cover w-full h-full rounded-md shadow-[0_0_15px_rgba(56,189,248,0.3)]"
+                      className="object-cover w-full h-full rounded-md shadow-[0_0_15px_rgba(239,68,68,0.3)]"
                     />
-                    <div className="absolute inset-0 border border-cyan-500/50 rounded-md"></div>
-                    <div className="absolute bottom-3 right-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-2 py-1 rounded-md text-xs font-medium shadow-lg">
+                    <div className="absolute inset-0 border border-red-500/50 rounded-md"></div>
+                    <div className="absolute bottom-3 right-3 bg-gradient-to-r from-red-500 to-red-600 text-white px-2 py-1 rounded-md text-xs font-medium shadow-lg">
                       ✓ OPTIMIZED
                     </div>
                   </div>
@@ -188,10 +188,10 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
 
             <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-lg p-4">
               <div className="flex justify-between items-center mb-3">
-                <Label className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-300">
+                <Label className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-300 to-red-400">
                   Visual Assets {selectedImageUrls.length > 0 && `(${selectedImageUrls.length}/${MAX_SELECTED_IMAGES})`}
                 </Label>
-                <div className="text-xs bg-white/10 rounded-full px-3 py-1 font-medium text-blue-200">
+                <div className="text-xs bg-white/10 rounded-full px-3 py-1 font-medium text-red-200">
                   {selectedImageUrls.length} / {MAX_SELECTED_IMAGES} selected
                 </div>
               </div>
@@ -210,7 +210,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               ) : (
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none z-10 rounded-md"></div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-slate-800 p-2 rounded-md bg-black/30">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-red-700 scrollbar-track-slate-800 p-2 rounded-md bg-black/30">
                     {allImageUrls.map((imageUrl, index) => (
                       <motion.div
                         key={index}
@@ -220,8 +220,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                         onClick={() => handleImageSelection(imageUrl)}
                         className={`group relative border rounded-md overflow-hidden cursor-pointer transition-all duration-200 
                                   ${selectedImageUrls.includes(imageUrl) 
-                                    ? 'border-cyan-500 ring-1 ring-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]' 
-                                    : 'border-white/10 hover:border-cyan-500/50'}`}
+                                    ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' 
+                                    : 'border-white/10 hover:border-red-500/50'}`}
                       >
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10"></div>
                         <img
@@ -230,7 +230,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                           className="aspect-video object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
                         />
                         {selectedImageUrls.includes(imageUrl) ? (
-                          <div className="absolute top-2 right-2 bg-cyan-500 text-white rounded-full p-1 z-20 shadow-[0_0_5px_rgba(6,182,212,0.7)]">
+                          <div className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 z-20 shadow-[0_0_5px_rgba(239,68,68,0.7)]">
                             <CheckCircle className="w-4 h-4" />
                           </div>
                         ) : (
@@ -254,7 +254,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               transition={{ duration: 0.2 }}
             >
               <Button
-                className="w-full rounded-md py-6 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] relative overflow-hidden border-0 transition-all duration-300"
+                className="w-full rounded-md py-6 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] relative overflow-hidden border-0 transition-all duration-300"
                 onClick={handleConfirmAndCreateVideo}
                 disabled={isGeneratingVideo || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
               >

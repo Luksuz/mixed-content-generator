@@ -1,10 +1,10 @@
 "use client";
 
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Image as ImageIcon, Download, RefreshCw, Plus, Check, X } from "lucide-react";
-import React, { useState, useEffect } from "react";
 import { ImageProvider, GeneratedImageSet } from '@/types/image-generation';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ import { motion } from "framer-motion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Sparkles, AlertCircle, CheckCircle } from "lucide-react";
 import { simulateThumbnailGeneration } from "@/lib/mock-data";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 
 // Updated props for the controlled component
 interface ImageGeneratorProps {
@@ -230,36 +232,36 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
   return (
     <Tabs defaultValue="image-generation" className="space-y-8">
-      <TabsList className="grid w-full grid-cols-2 backdrop-blur-sm bg-opacity-20 bg-blue-900 border border-blue-500/20 shadow-glow-blue rounded-xl p-1">
+      <TabsList className="grid w-full grid-cols-2 backdrop-blur-sm bg-opacity-20 bg-red-900 border border-red-700/20 shadow-glow-red rounded-xl p-1">
         <TabsTrigger 
           value="image-generation" 
-          className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600/70 data-[state=active]:to-cyan-600/70 data-[state=active]:text-white data-[state=active]:shadow-glow-blue transition-all duration-300 rounded-lg"
+          className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-600/70 data-[state=active]:to-red-700/70 data-[state=active]:text-white data-[state=active]:shadow-glow-red transition-all duration-300 rounded-lg"
         >
           <div className="flex items-center gap-2">
-            <ImageIcon size={16} className="text-blue-400" />
-            <span className="glow-text">Image Synthesis</span>
+            <ImageIcon size={16} className="text-red-400" />
+            <span className="glow-text-red">Image Synthesis</span>
           </div>
         </TabsTrigger>
         <TabsTrigger 
           value="thumbnail-generation"
-          className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600/70 data-[state=active]:to-pink-600/70 data-[state=active]:text-white data-[state=active]:shadow-glow-purple transition-all duration-300 rounded-lg"
+          className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-red-700/70 data-[state=active]:to-red-800/70 data-[state=active]:text-white data-[state=active]:shadow-glow-red transition-all duration-300 rounded-lg"
         >
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-purple-400" />
-            <span className="glow-text-purple">Thumbnail Studio</span>
+            <Sparkles size={16} className="text-red-400" />
+            <span className="glow-text-red">Thumbnail Studio</span>
           </div>
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value="image-generation" className="animate-fadeIn">
-        <div className="w-full space-y-6 p-6 futuristic-card shadow-glow-blue relative overflow-hidden">
+        <div className="w-full space-y-6 p-6 futuristic-card shadow-glow-red relative overflow-hidden">
           {/* Background blob effects */}
           <div className="blob w-[300px] h-[300px] top-0 right-0 opacity-5 absolute"></div>
-          <div className="blob-cyan w-[200px] h-[200px] bottom-0 left-0 opacity-5 absolute"></div>
+          <div className="blob-red w-[200px] h-[200px] bottom-0 left-0 opacity-5 absolute"></div>
           
           <div className="space-y-2 relative z-10">
             <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-blue-400" />
+              <ImageIcon className="h-5 w-5 text-red-400" />
               AI Image Generator
             </h2>
             <p className="text-muted-foreground">
@@ -280,7 +282,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                     size="sm" 
                     onClick={() => setSelectedSections([])}
                     disabled={selectedSections.length === 0}
-                    className="futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
+                    className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
                   >
                     Clear
                   </Button>
@@ -289,22 +291,22 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                     size="sm" 
                     onClick={() => setSelectedSections(Array.from({length: scriptSections.length}, (_, i) => i))}
                     disabled={selectedSections.length === scriptSections.length}
-                    className="futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
+                    className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
                   >
                     Select All
                   </Button>
                 </div>
               </div>
               
-              <ScrollArea className="h-52 border rounded-md p-4 backdrop-blur-sm bg-black/20 border-blue-500/30 futuristic-scrollbar">
+              <ScrollArea className="h-52 border rounded-md p-4 backdrop-blur-sm bg-black/20 border-red-700/30 futuristic-scrollbar">
                 <div className="space-y-2">
                   {scriptSections.map((section, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 hover:bg-blue-600/10 rounded-md transition-colors duration-200">
+                    <div key={index} className="flex items-center gap-2 p-2 hover:bg-red-600/10 rounded-md transition-colors duration-200">
                       <Checkbox 
                         id={`section-${index}`} 
                         checked={selectedSections.includes(index)}
                         onCheckedChange={() => toggleSectionSelection(index)}
-                        className="border-blue-500/50 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                        className="border-red-500/50 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                       />
                       <Label 
                         htmlFor={`section-${index}`} 
@@ -322,7 +324,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           
           {/* Custom Prompts */}
           <div className="space-y-4 relative z-10">
-            <Label className="glow-text-cyan">Custom Prompts</Label>
+            <Label className="glow-text-red">Custom Prompts</Label>
             
             <div className="flex gap-2">
               <Input
@@ -336,21 +338,21 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 variant="outline"
                 onClick={addCustomPrompt}
                 disabled={isLoadingImages || !newCustomPrompt.trim()}
-                className="futuristic-input hover:bg-cyan-600/20 hover:shadow-glow-cyan"
+                className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
               >
-                <Plus className="h-4 w-4 text-cyan-400" />
+                <Plus className="h-4 w-4 text-red-400" />
               </Button>
             </div>
             
             {customPrompts.length > 0 && (
               <div className="space-y-2">
                 {customPrompts.map((prompt, index) => (
-                  <div key={index} className="flex items-center gap-2 border rounded-md p-2 backdrop-blur-sm bg-opacity-20 bg-cyan-900/10 border-cyan-500/30 animate-zoomIn" style={{animationDelay: `${index * 100}ms`}}>
+                  <div key={index} className={`flex items-center gap-2 border rounded-md p-2 backdrop-blur-sm bg-opacity-20 bg-red-900/10 border-red-700/30 animate-zoomIn`} style={{animationDelay: `${index * 100}ms`}}>
                     <div className="flex-grow text-sm">{prompt}</div>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 w-6 p-0 hover:bg-red-600/20 hover:text-red-400 transition-colors" 
+                      className="h-6 w-6 p-0 hover:bg-red-700/20 hover:text-red-500 transition-colors" 
                       onClick={() => removeCustomPrompt(index)}
                     >
                       <X className="h-4 w-4" />
@@ -392,12 +394,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               >
                 <option value="openai">OpenAI (DALL-E 3)</option>
                 <option value="minimax">Minimax</option>
+                <option value="flux">Flux</option>
+                <option value="gemini">Gemini</option>
+                <option value="ideogram">Ideogram</option>
+                <option value="sd">Stable Diffusion</option>
               </select>
             </div>
 
             {/* Number of Images Per Prompt */}
             <div className="space-y-2">
-              <Label htmlFor="images-per-prompt" className="glow-text-cyan">Images per Prompt: {numImagesPerPrompt}</Label>
+              <Label htmlFor="images-per-prompt" className="glow-text-red">Images per Prompt: {numImagesPerPrompt}</Label>
               <Slider
                 id="images-per-prompt"
                 min={1}
@@ -407,14 +413,14 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 onValueChange={(value: number[]) => setNumImagesPerPrompt(value[0])}
                 disabled={isLoadingImages}
                 aria-label="Number of images per prompt"
-                className="[&>[role=slider]]:bg-cyan-600 [&>[role=slider]]:shadow-glow-cyan"
+                className="[&>[role=slider]]:bg-red-600 [&>[role=slider]]:shadow-glow-red"
               />
             </div>
 
             {/* Minimax Aspect Ratio */}
             {selectedProvider === 'minimax' && (
               <div className="space-y-2">
-                <Label htmlFor="minimax-aspect-ratio" className="glow-text-purple">Aspect Ratio (Minimax)</Label>
+                <Label htmlFor="minimax-aspect-ratio" className="glow-text-red">Aspect Ratio (Minimax)</Label>
                 <select 
                   id="minimax-aspect-ratio"
                   disabled={isLoadingImages}
@@ -429,7 +435,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             {/* Generate Button */}
             <div className={`md:col-span-${selectedProvider === 'minimax' ? '1' : '2'}`}>
               <Button 
-                className="w-full flex items-center justify-center gap-2 shimmer bg-gradient-to-r from-blue-600/80 to-cyan-600/80 border-0 shadow-glow-blue relative overflow-hidden" 
+                className="w-full flex items-center justify-center gap-2 shimmer bg-gradient-to-r from-red-600/80 to-red-800/80 border-0 shadow-glow-red relative overflow-hidden" 
                 onClick={handleGenerateClick}
                 disabled={isLoadingImages || !promptsAvailable}
               >
@@ -452,16 +458,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           {(selectedSections.length > 0 || customPrompts.length > 0) && (
             <div className="flex flex-wrap gap-2 mt-2 relative z-10">
               {selectedSections.length > 0 && (
-                <Badge variant="secondary" className="bg-blue-600/20 border-blue-500/30 shadow-glow-blue">
+                <Badge variant="secondary" className="bg-red-600/20 border-red-700/30 shadow-glow-red">
                   {selectedSections.length} script section{selectedSections.length !== 1 ? 's' : ''}
                 </Badge>
               )}
               {customPrompts.length > 0 && (
-                <Badge variant="secondary" className="bg-cyan-600/20 border-cyan-500/30 shadow-glow-cyan">
+                <Badge variant="secondary" className="bg-red-700/20 border-red-800/30 shadow-glow-red">
                   {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
                 </Badge>
               )}
-              <Badge variant="secondary" className="bg-purple-600/20 border-purple-500/30 shadow-glow-purple">
+              <Badge variant="secondary" className="bg-red-800/20 border-red-900/30 shadow-glow-red">
                 {numImagesPerPrompt} image{numImagesPerPrompt !== 1 ? 's' : ''} per prompt
               </Badge>
               <div className="text-xs text-muted-foreground ml-2">
@@ -473,9 +479,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
         {/* Regeneration Controls - new section that only appears when images are selected */}
         {selectedImages.length > 0 && (
-          <div className="p-4 futuristic-card backdrop-blur-md bg-opacity-20 bg-purple-900/10 border-purple-500/30 shadow-glow-purple flex flex-col sm:flex-row justify-between items-center gap-4 animate-slideUp">
+          <div className="p-4 futuristic-card backdrop-blur-md bg-opacity-20 bg-red-900/10 border-red-700/30 shadow-glow-red flex flex-col sm:flex-row justify-between items-center gap-4 animate-slideUp">
             <div>
-              <Badge variant="secondary" className="px-2 py-1 text-sm bg-purple-600/20 border-purple-500/30 shadow-glow-purple">
+              <Badge variant="secondary" className="px-2 py-1 text-sm bg-red-700/20 border-red-800/30 shadow-glow-red">
                 {selectedImages.length} image{selectedImages.length !== 1 ? 's' : ''} selected
               </Badge>
               <p className="text-sm text-muted-foreground mt-1">
@@ -488,9 +494,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 size="sm" 
                 onClick={() => setSelectedImages([])}
                 disabled={isLoadingImages}
-                className="futuristic-input hover:bg-purple-600/20 hover:shadow-glow-purple"
+                className="futuristic-input hover:bg-red-700/20 hover:shadow-glow-red"
               >
-                <X className="h-4 w-4 mr-2 text-purple-400" />
+                <X className="h-4 w-4 mr-2 text-red-400" />
                 Clear Selection
               </Button>
               <Button 
@@ -498,7 +504,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 size="sm"
                 onClick={handleRegenerateClick}
                 disabled={isLoadingImages || selectedImages.length === 0}
-                className="shimmer bg-gradient-to-r from-purple-600/80 to-pink-600/80 border-0 shadow-glow-purple flex items-center gap-2"
+                className="shimmer bg-gradient-to-r from-red-700/80 to-red-900/80 border-0 shadow-glow-red flex items-center gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
                 Regenerate {selectedImages.length} Image{selectedImages.length !== 1 ? 's' : ''}
@@ -509,7 +515,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
         {/* Error Display */}
         {generationError && (
-          <div className="animate-slideUp p-4 bg-red-900/20 border border-red-500/30 text-red-200 rounded-md">
+          <div className="animate-slideUp p-4 bg-red-900/20 border border-red-700/30 text-red-200 rounded-md">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle className="h-5 w-5 text-red-400" />
               <p className="font-semibold text-red-300">Generation Error:</p>
@@ -526,11 +532,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               {isLoadingImages ? (
                 <>
                   <div className="w-16 h-16 relative mb-4">
-                    <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
-                    <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-cyan-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-                    <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-purple-500 animate-spin" style={{ animationDuration: '3s' }}></div>
+                    <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-red-500 animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-red-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                    <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-red-600 animate-spin" style={{ animationDuration: '3s' }}></div>
                   </div>
-                  <p className="glow-text-cyan">{generatingInfo || "Generating your images..."}</p>
+                  <p className="glow-text-red">{generatingInfo || "Generating your images..."}</p>
                 </>
               ) : (
                 <>
@@ -545,8 +551,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           
           {/* Display actual generated images */}
           {imageSets.map((set, setIndex) => (
-            <div key={setIndex} className="p-4 futuristic-card shadow-glow-blue animate-slideUp" style={{animationDelay: `${setIndex * 150}ms`}}>
-              <h3 className="text-lg font-semibold mb-1 glow-text">Prompt:</h3>
+            <div key={setIndex} className="p-4 futuristic-card shadow-glow-red animate-slideUp" style={{animationDelay: `${setIndex * 150}ms`}}>
+              <h3 className="text-lg font-semibold mb-1 glow-text-red">Prompt:</h3>
               <p className="text-sm text-muted-foreground mb-3 italic truncate">"{set.originalPrompt}"</p>
               {(set.imageUrls.length === 0 && set.imageData.length === 0) && !isLoadingImages && (
                   <p className="text-sm text-red-500">No images were generated for this prompt. Check errors or server logs.</p>
@@ -561,10 +567,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   return (
                     <div 
                       key={`url-${imageIndex}`} 
-                      className={`relative group rounded-lg overflow-hidden shadow-lg aspect-video animate-zoomIn ${
-                        isSelected 
-                          ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-background shadow-glow-purple' 
-                          : 'border border-blue-500/30'
+                      className={`relative group rounded-lg overflow-hidden shadow-lg aspect-video animate-zoomIn ${isSelected 
+                          ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-background shadow-glow-red' 
+                          : 'border border-red-700/30'
                       }`}
                       style={{animationDelay: `${(setIndex * 100) + (imageIndex * 50)}ms`}}
                     >
@@ -579,9 +584,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             size="sm" 
                             variant="secondary" 
                             onClick={() => downloadImage(url, `generated_image_${setIndex}_${imageIndex}.png`)}
-                            className="bg-blue-900/40 hover:bg-blue-800/60 border-blue-500/30"
+                            className="bg-red-900/40 hover:bg-red-800/60 border-red-700/30"
                           >
-                            <Download size={16} className="mr-2 text-blue-400" />
+                            <Download size={16} className="mr-2 text-red-400" />
                             Download
                           </Button>
                           
@@ -591,10 +596,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
                             disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
                             className={isSelected ? 
-                              "bg-purple-600/60 hover:bg-purple-700/70 border-purple-500/30" : 
-                              "bg-purple-900/30 hover:bg-purple-800/40 border-purple-500/30"}
+                              "bg-red-600/60 hover:bg-red-700/70 border-red-500/30" : 
+                              "bg-red-900/30 hover:bg-red-800/40 border-red-700/30"}
                           >
-                            {isSelected ? <Check size={16} className="mr-2 text-purple-200" /> : <RefreshCw size={16} className="mr-2 text-purple-400" />}
+                            {isSelected ? <Check size={16} className="mr-2 text-red-200" /> : <RefreshCw size={16} className="mr-2 text-red-400" />}
                             {isSelected ? "Selected" : "Select"}
                           </Button>
                         </div>
@@ -602,7 +607,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                       
                       {isSelected && (
                         <div className="absolute top-2 right-2">
-                          <Badge className="bg-purple-600/70 border-0 shadow-glow-purple">
+                          <Badge className="bg-red-600/70 border-0 shadow-glow-red">
                             Selected
                           </Badge>
                         </div>
@@ -621,10 +626,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   return (
                     <div 
                       key={`b64-${imageIndex}`} 
-                      className={`relative group rounded-lg overflow-hidden shadow-lg aspect-video animate-zoomIn ${
-                        isSelected 
-                          ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-background shadow-glow-purple' 
-                          : 'border border-blue-500/30'
+                      className={`relative group rounded-lg overflow-hidden shadow-lg aspect-video animate-zoomIn ${isSelected 
+                          ? 'ring-2 ring-red-500 ring-offset-2 ring-offset-background shadow-glow-red' 
+                          : 'border border-red-700/30'
                       }`}
                       style={{animationDelay: `${(setIndex * 100) + ((imageIndex + set.imageUrls.length) * 50)}ms`}}
                     >
@@ -639,9 +643,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             size="sm" 
                             variant="secondary" 
                             onClick={() => downloadImage(`data:image/png;base64,${b64}`, `generated_image_b64_${setIndex}_${imageIndex}.png`)}
-                            className="bg-blue-900/40 hover:bg-blue-800/60 border-blue-500/30"
+                            className="bg-red-900/40 hover:bg-red-800/60 border-red-700/30"
                           >
-                            <Download size={16} className="mr-2 text-blue-400" />
+                            <Download size={16} className="mr-2 text-red-400" />
                             Download
                           </Button>
                           
@@ -651,10 +655,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                             onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
                             disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected)}
                             className={isSelected ? 
-                              "bg-purple-600/60 hover:bg-purple-700/70 border-purple-500/30" : 
-                              "bg-purple-900/30 hover:bg-purple-800/40 border-purple-500/30"}
+                              "bg-red-600/60 hover:bg-red-700/70 border-red-500/30" : 
+                              "bg-red-900/30 hover:bg-red-800/40 border-red-700/30"}
                           >
-                            {isSelected ? <Check size={16} className="mr-2 text-purple-200" /> : <RefreshCw size={16} className="mr-2 text-purple-400" />}
+                            {isSelected ? <Check size={16} className="mr-2 text-red-200" /> : <RefreshCw size={16} className="mr-2 text-red-400" />}
                             {isSelected ? "Selected" : "Select"}
                           </Button>
                         </div>
@@ -662,7 +666,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                       
                       {isSelected && (
                         <div className="absolute top-2 right-2">
-                          <Badge className="bg-purple-600/70 border-0 shadow-glow-purple">
+                          <Badge className="bg-red-600/70 border-0 shadow-glow-red">
                             Selected
                           </Badge>
                         </div>
@@ -680,12 +684,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         <div className="w-full space-y-6 p-6 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-lg border-0 shadow-xl text-white relative overflow-hidden">
           {/* Ambient background elements - enhanced */}
           <div className="absolute inset-0 z-0">
-            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-500/20 via-fuchsia-500/10 to-pink-500/20 opacity-30" />
-            <div className="absolute -top-40 -right-40 w-80 h-80 bg-fuchsia-500 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-3s"}} />
-            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full filter blur-3xl opacity-10 animate-blob" />
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-red-500/20 via-red-600/10 to-red-700/20 opacity-30" />
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-3s"}} />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-600 rounded-full filter blur-3xl opacity-10 animate-blob" />
             {/* Add a few more blobs for enhanced effect */}
-            <div className="absolute top-60 left-20 w-40 h-40 bg-blue-500 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-5s"}} />
-            <div className="absolute bottom-20 right-20 w-32 h-32 bg-pink-500 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-7s"}} />
+            <div className="absolute top-60 left-20 w-40 h-40 bg-red-400 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-5s"}} />
+            <div className="absolute bottom-20 right-20 w-32 h-32 bg-red-700 rounded-full filter blur-3xl opacity-10 animate-blob" style={{animationDelay: "-7s"}} />
           </div>
           
           <div className="relative z-10"> {/* Content wrapper */}
@@ -694,9 +698,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 via-purple-400 to-pink-400 flex items-center gap-2"
+                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-red-500 to-red-600 flex items-center gap-2"
               >
-                <Sparkles className="h-6 w-6 text-fuchsia-400" />
+                <Sparkles className="h-6 w-6 text-red-400" />
                 Neural Thumbnail Generator
               </motion.h2>
               <p className="text-slate-300">
@@ -704,8 +708,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               </p>
             </div>
 
-            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-lg p-5 space-y-4 shadow-lg shadow-purple-500/10">
-              <Label htmlFor="thumbnail-prompt" className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-purple-300 to-pink-300">
+            <div className="backdrop-blur-md bg-black/20 border border-white/10 rounded-lg p-5 space-y-4 shadow-lg shadow-red-500/10">
+              <Label htmlFor="thumbnail-prompt" className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-300 to-red-400">
                 Visual Synthesis Prompt
               </Label>
               
@@ -716,7 +720,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   value={thumbnailPrompt}
                   onChange={(e) => setThumbnailPrompt(e.target.value)}
                   disabled={isGeneratingThumbnail}
-                  className="bg-black/30 border-white/10 text-slate-100 py-6 pl-4 pr-12 focus-visible:ring-fuchsia-500 placeholder:text-gray-500"
+                  className="bg-black/30 border-white/10 text-slate-100 py-6 pl-4 pr-12 focus-visible:ring-red-500 placeholder:text-gray-500"
                 />
                 {thumbnailPrompt && (
                   <button 
@@ -735,7 +739,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 transition={{ duration: 0.2 }}
               >
                 <Button 
-                  className="w-full rounded-md py-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40 relative overflow-hidden border-0 transition-all duration-300" 
+                  className="w-full rounded-md py-6 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-500/20 hover:shadow-red-500/40 relative overflow-hidden border-0 transition-all duration-300" 
                   onClick={handleGenerateThumbnail}
                   disabled={isGeneratingThumbnail || !thumbnailPrompt.trim()}
                 >
@@ -772,8 +776,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 </Alert>
               </motion.div>
             )}
-
-            {/* Rest of existing code ... */}
           </div>
         </div>
       </TabsContent>

@@ -417,22 +417,21 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     <div className="space-y-8 relative animate-fadeIn">
       {/* Animated background blobs */}
       <div className="blob w-[300px] h-[300px] top-0 right-0 opacity-10"></div>
-      <div className="blob-cyan w-[250px] h-[250px] bottom-32 left-10 opacity-10"></div>
       
       <Tabs defaultValue="form" className="relative z-10">
-        <TabsList className="mb-4 backdrop-blur-sm bg-opacity-20 bg-blue-900 border border-blue-500/20 shadow-glow-blue">
-          <TabsTrigger value="form" className="data-[state=active]:bg-blue-600/20 data-[state=active]:text-blue-300 data-[state=active]:shadow-glow-blue">
-            <span className="glow-text">Basic Settings</span>
+        <TabsList className="mb-4 backdrop-blur-sm bg-opacity-20 bg-red-900 border border-red-700/20 shadow-glow-red">
+          <TabsTrigger value="form" className="data-[state=active]:bg-red-700/20 data-[state=active]:text-red-300 data-[state=active]:shadow-glow-red">
+            <span className="glow-text-red">Basic Settings</span>
           </TabsTrigger>
-          <TabsTrigger value="advanced" className="data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-300 data-[state=active]:shadow-glow-purple">
-            <span className="glow-text-purple">Advanced Options</span>
+          <TabsTrigger value="advanced" className="data-[state=active]:bg-red-800/20 data-[state=active]:text-red-400 data-[state=active]:shadow-glow-red">
+            <span className="glow-text-red">Advanced Options</span>
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="form" className="w-full space-y-6 p-6 rounded-lg animate-slideUp futuristic-card shadow-glow-blue">
+        <TabsContent value="form" className="w-full space-y-6 px-6 pt-2 pb-6 rounded-lg animate-slideUp futuristic-card shadow-glow-red">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-blue-400" />
+              <Sparkles className="h-5 w-5 text-red-400" />
               Script Generator
             </h2>
             <p className="text-muted-foreground">
@@ -499,7 +498,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
-              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-blue-600/80 to-purple-600/80 border-0 shadow-glow-blue" 
+              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-red-600/80 to-red-700/80 border-0 shadow-glow-red" 
               onClick={handleGenerateOutline}
               disabled={isLoading || isGeneratingScript || !title}
             >
@@ -512,7 +511,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </Button>
             
             <Button 
-              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-purple-600/80 to-cyan-600/80 border-0 shadow-glow-purple" 
+              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-red-700/80 to-red-800/80 border-0 shadow-glow-red" 
               variant="secondary"
               onClick={handleGenerateFullScript}
               disabled={isGeneratingScript || isLoading || currentScriptSections.length === 0}
@@ -529,19 +528,19 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               <Button 
                 variant="outline"
                 onClick={handleDownloadDocx}
-                className="flex-1 gap-2 futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
+                className="flex-1 gap-2 futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
               >
-                <DownloadCloud size={16} className="text-blue-400" />
+                <DownloadCloud size={16} className="text-red-400" />
                 Download DOCX
               </Button>
             )}
           </div>
         </TabsContent>
 
-        <TabsContent value="advanced" className="w-full space-y-6 p-6 rounded-lg animate-slideUp futuristic-card shadow-glow-purple">
+        <TabsContent value="advanced" className="w-full space-y-6 px-6 pt-2 pb-6 rounded-lg animate-slideUp futuristic-card shadow-glow-red">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-400" />
+              <Sparkles className="h-5 w-5 text-red-400" />
               Advanced Options
             </h2>
             <p className="text-muted-foreground">
@@ -551,7 +550,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="inspirationalTranscript" className="glow-text-purple">Inspirational Video Transcript</Label>
+              <Label htmlFor="inspirationalTranscript" className="glow-text-red">Inspirational Video Transcript</Label>
               <Textarea
                 id="inspirationalTranscript"
                 placeholder="Paste a transcript from a video that you'd like to use as inspiration"
@@ -562,7 +561,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="forbiddenWords" className="glow-text-purple">Forbidden Words (comma-separated)</Label>
+              <Label htmlFor="forbiddenWords" className="glow-text-red">Forbidden Words (comma-separated)</Label>
               <Input
                 id="forbiddenWords"
                 placeholder="Words to avoid in the generated script, separated by commas"
@@ -573,7 +572,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="uploadScript" className="glow-text-purple">Upload Existing Script</Label>
+              <Label htmlFor="uploadScript" className="glow-text-red">Upload Existing Script</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="uploadScript"
@@ -582,8 +581,8 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                   onChange={handleFileUpload}
                   className="flex-1 futuristic-input"
                 />
-                <Button variant="outline" className="gap-2 futuristic-input hover:bg-purple-600/20 hover:shadow-glow-purple">
-                  <Upload size={16} className="text-purple-400" />
+                <Button variant="outline" className="gap-2 futuristic-input hover:bg-red-600/20 hover:shadow-glow-red">
+                  <Upload size={16} className="text-red-400" />
                   Upload
                 </Button>
               </div>
@@ -598,7 +597,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
         <div className="w-full lg:w-1/2 space-y-6 animate-slideUp">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-400" />
+              <FileText className="h-5 w-5 text-red-400" />
               Script Outline
             </h2>
             <p className="text-muted-foreground">
@@ -634,7 +633,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           <div className="space-y-2 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-                <FileText className="h-5 w-5 text-cyan-400" />
+                <FileText className="h-5 w-5 text-red-400" />
                 Full Script
               </h2>
               <p className="text-muted-foreground">
@@ -642,7 +641,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               </p>
             </div>
             {currentFullScript && (
-              <div className="text-sm font-medium glow-text bg-blue-900/20 px-3 py-1 rounded-full border border-blue-500/30">
+              <div className="text-sm font-medium glow-text-red bg-red-900/20 px-3 py-1 rounded-full border border-red-700/30">
                 Word Count: {scriptWordCount}
               </div>
             )}
@@ -650,7 +649,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
           
           {!currentFullScript ? (
             <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
-              <p className="text-muted-foreground glow-text-cyan">
+              <p className="text-muted-foreground glow-text-red">
                 {isGeneratingScript 
                   ? "Generating your full script..." 
                   : "Generate a full script to see it here"}
@@ -658,7 +657,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="border rounded-lg p-4 futuristic-card shadow-glow-cyan futuristic-scrollbar overflow-y-auto max-h-[600px]">
+              <div className="border rounded-lg p-4 futuristic-card shadow-glow-red futuristic-scrollbar overflow-y-auto max-h-[600px]">
                 <div className="prose prose-sm max-w-none dark:prose-invert">
                   <h1 className="text-xl font-bold mb-4 gradient-text">{title}</h1>
                   <ReactMarkdown>{currentFullScript}</ReactMarkdown>
@@ -667,7 +666,7 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               
               {scriptSegments.length > 1 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium glow-text-cyan">Script Segments</h3>
+                  <h3 className="text-lg font-medium glow-text-red">Script Segments</h3>
                   <p className="text-sm text-muted-foreground">
                     The script is divided into segments of approximately 500 words each for easier editing.
                   </p>
@@ -676,15 +675,15 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
                     {scriptSegments.map((segment, index) => (
                       <div key={index} className="border rounded-lg p-4 futuristic-card animate-zoomIn" style={{animationDelay: `${index * 100}ms`}}>
                         <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium glow-text-cyan">Segment {index + 1}</h4>
+                          <h4 className="font-medium glow-text-red">Segment {index + 1}</h4>
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={() => handleDirectRegeneration(index, segment)}
                             disabled={isGeneratingScript}
-                            className="futuristic-input hover:bg-cyan-600/20 hover:shadow-glow-cyan"
+                            className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
                           >
-                            <RefreshCw size={14} className="mr-2 text-cyan-400" />
+                            <RefreshCw size={14} className="mr-2 text-red-400" />
                             Regenerate
                           </Button>
                         </div>

@@ -7,7 +7,7 @@ import ImageGenerator from "./components/image-generator";
 import VideoGenerator from "./components/video-generator";
 import GoogleDriveComponent from "./components/google-drive-component";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Volume2, Image, Film, Database, Cloud, Sparkles } from "lucide-react";
+import { FileText, Volume2, Image, Film, Database, Cloud, Sparkles, Lightbulb, Music2, Youtube, BrainCircuit, Recycle, FolderArchive } from "lucide-react";
 import { ScriptSection } from "@/types";
 import { 
   ImageProvider, 
@@ -35,6 +35,14 @@ import {
   simulateLoading
 } from "@/lib/mock-data";
 
+// Import new tab components
+import IdeationTab from "./components/IdeationTab";
+import MusicTab from "./components/MusicTab";
+import YoutubeUploadTab from "./components/YoutubeUploadTab";
+import ReinforcedLearningTab from "./components/ReinforcedLearningTab";
+import ContentRepackagerTab from "./components/ContentRepackagerTab";
+import VisualAssetVaultTab from "./components/VisualAssetVaultTab";
+
 // Determine if we should use mock data
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_NODE_ENV === 'development'
 
@@ -48,7 +56,7 @@ const GeneratorsPage = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const { user, mappedUser } = useAuth();
   
-  // Use mock user ID instead of actual user ID
+  // Use mock user ID instead of actual ID
   const actualUserId = USE_MOCK_DATA ? MOCK_USER_ID : (user?.id || "");
 
   // Script Generator State
@@ -490,45 +498,83 @@ const GeneratorsPage = () => {
       <div className="flex flex-1 relative">
         {/* Left Side Navigation */}
         <div className="w-20 md:w-64 h-[calc(100vh-64px)] sticky top-16 pt-4 pb-8 pl-2 pr-2 md:pr-4 flex flex-col space-y-4 z-20">
-          <div className="h-full flex flex-col space-y-4 futuristic-scrollbar overflow-y-auto backdrop-blur-sm bg-opacity-10 bg-blue-900 border border-blue-500/20 rounded-2xl p-3 shadow-glow-blue">
+          <div className="h-full flex flex-col space-y-2 futuristic-scrollbar overflow-y-auto backdrop-blur-sm bg-opacity-20 bg-red-900 border border-red-700/30 rounded-2xl p-3 shadow-glow-red">
+            <button 
+              onClick={() => setActiveTab("ideation")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "ideation" ? "bg-red-700/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <Lightbulb size={20} className={activeTab === "ideation" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "ideation" ? "glow-text-red" : "text-muted-foreground"}`}>Ideation</span>
+            </button>
             <button 
               onClick={() => setActiveTab("script")}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "script" ? "bg-blue-600/20 text-blue-300 shadow-glow-blue" : "hover:bg-blue-900/30"}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "script" ? "bg-red-700/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
-              <FileText size={24} className={activeTab === "script" ? "text-blue-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "script" ? "glow-text" : "text-muted-foreground"}`}>Script</span>
+              <FileText size={20} className={activeTab === "script" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "script" ? "glow-text-red" : "text-muted-foreground"}`}>Script</span>
             </button>
-            
             <button 
               onClick={() => setActiveTab("audio")}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "audio" ? "bg-cyan-600/20 text-cyan-300 shadow-glow-cyan" : "hover:bg-blue-900/30"}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "audio" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
-              <Volume2 size={24} className={activeTab === "audio" ? "text-cyan-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "audio" ? "glow-text-cyan" : "text-muted-foreground"}`}>Audio</span>
+              <Volume2 size={20} className={activeTab === "audio" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "audio" ? "glow-text-red" : "text-muted-foreground"}`}>Audio</span>
             </button>
-            
             <button 
               onClick={() => setActiveTab("image")}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "image" ? "bg-purple-600/20 text-purple-300 shadow-glow-purple" : "hover:bg-blue-900/30"}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "image" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
-              <Image size={24} className={activeTab === "image" ? "text-purple-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "image" ? "glow-text-purple" : "text-muted-foreground"}`}>Image</span>
+              <Image size={20} className={activeTab === "image" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "image" ? "glow-text-red" : "text-muted-foreground"}`}>Image</span>
             </button>
-            
+             <button 
+              onClick={() => setActiveTab("music")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "music" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <Music2 size={20} className={activeTab === "music" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "music" ? "glow-text-red" : "text-muted-foreground"}`}>Music</span>
+            </button>
             <button 
               onClick={() => setActiveTab("video")}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "video" ? "bg-indigo-600/20 text-indigo-300 shadow-glow-blue" : "hover:bg-blue-900/30"}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "video" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
-              <Film size={24} className={activeTab === "video" ? "text-indigo-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "video" ? "text-indigo-300 text-glow" : "text-muted-foreground"}`}>Video</span>
+              <Film size={20} className={activeTab === "video" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "video" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Videos</span>
             </button>
-            
+            <button 
+              onClick={() => setActiveTab("youtube_upload")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "youtube_upload" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <Youtube size={20} className={activeTab === "youtube_upload" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "youtube_upload" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>YouTube Upload</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab("reinforced_learning")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "reinforced_learning" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <BrainCircuit size={20} className={activeTab === "reinforced_learning" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "reinforced_learning" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Reinforced Learning</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab("content_repackager")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "content_repackager" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <Recycle size={20} className={activeTab === "content_repackager" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "content_repackager" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Content Repackager</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab("visual_asset_vault")}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "visual_asset_vault" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
+            >
+              <FolderArchive size={20} className={activeTab === "visual_asset_vault" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "visual_asset_vault" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Visual Asset Vault</span>
+            </button>
             <button 
               onClick={() => setActiveTab("gdrive")}
-              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-3 rounded-xl transition-all duration-300 ${activeTab === "gdrive" ? "bg-teal-600/20 text-teal-300 shadow-glow-cyan" : "hover:bg-blue-900/30"}`}
+              className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "gdrive" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
-              <Database size={24} className={activeTab === "gdrive" ? "text-teal-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-teal-300 text-glow" : "text-muted-foreground"}`}>Drive</span>
+              <Database size={20} className={activeTab === "gdrive" ? "text-red-400" : "text-muted-foreground"} />
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Drive</span>
             </button>
             
             {/* Only show in development mode */}
@@ -551,7 +597,7 @@ const GeneratorsPage = () => {
           <div className="max-w-6xl mx-auto">
             <div className="mb-8">
               <h1 className="text-3xl font-bold mb-2 gradient-text flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-blue-400" />
+                <Sparkles className="h-6 w-6 text-red-400" />
                 AI Content Generator
               </h1>
               <p className="text-muted-foreground">
@@ -619,10 +665,10 @@ const GeneratorsPage = () => {
               
               {activeTab === "gdrive" && (
                 <div className="animate-fadeIn">
-                  <Card className="futuristic-card shadow-glow-cyan">
+                  <Card className="futuristic-card shadow-glow-red">
                     <CardHeader>
                       <div className="flex items-center space-x-2">
-                        <Cloud size={24} className="text-cyan-400" />
+                        <Cloud size={24} className="text-red-400" />
                         <CardTitle className="gradient-text">Google Drive</CardTitle>
                       </div>
                       <CardDescription>Select files or folders from your Google Drive.</CardDescription> 
@@ -631,6 +677,37 @@ const GeneratorsPage = () => {
                       <GoogleDriveComponent />
                     </CardContent>
                   </Card>
+                </div>
+              )}
+
+              {activeTab === "ideation" && (
+                <div className="animate-fadeIn">
+                  <IdeationTab />
+                </div>
+              )}
+              {activeTab === "music" && (
+                <div className="animate-fadeIn">
+                  <MusicTab />
+                </div>
+              )}
+              {activeTab === "youtube_upload" && (
+                <div className="animate-fadeIn">
+                  <YoutubeUploadTab />
+                </div>
+              )}
+              {activeTab === "reinforced_learning" && (
+                <div className="animate-fadeIn">
+                  <ReinforcedLearningTab />
+                </div>
+              )}
+              {activeTab === "content_repackager" && (
+                <div className="animate-fadeIn">
+                  <ContentRepackagerTab />
+                </div>
+              )}
+              {activeTab === "visual_asset_vault" && (
+                <div className="animate-fadeIn">
+                  <VisualAssetVaultTab />
                 </div>
               )}
 

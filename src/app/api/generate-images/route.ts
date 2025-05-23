@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
 import { v4 as uuidv4 } from 'uuid';
 
-type ImageProvider = "openai" | "minimax";
+type ImageProvider = "openai" | "minimax" | "flux" | "gemini" | "ideogram" | "sd";
 
 interface MultiImageRequestBody {
   provider: ImageProvider;

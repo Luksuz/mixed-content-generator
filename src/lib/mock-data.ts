@@ -257,9 +257,35 @@ export const mockVideoJobs: VideoJob[] = [
   }
 ];
 
-// Mock function to simulate loading delay
+// Default simulation for general loading
 export const simulateLoading = (ms = 1500): Promise<void> => {
+  console.log(`⏳ Simulating loading for ${ms / 1000} seconds... (Mock Mode)`);
   return new Promise(resolve => setTimeout(resolve, ms));
+};
+
+// Specific loading simulations based on user request
+export const simulateScriptGenerationLoading = (): Promise<void> => {
+  const duration = 10000; // 10 seconds
+  console.log(`📜 Simulating SCRIPT generation for ${duration / 1000} seconds... (Mock Mode)`);
+  return new Promise(resolve => setTimeout(resolve, duration));
+};
+
+export const simulateAudioGenerationLoading = (): Promise<void> => {
+  const duration = 15000; // 15 seconds
+  console.log(`🔊 Simulating AUDIO generation for ${duration / 1000} seconds... (Mock Mode)`);
+  return new Promise(resolve => setTimeout(resolve, duration));
+};
+
+export const simulateImageGenerationLoading = (): Promise<void> => {
+  const duration = 20000; // 20 seconds
+  console.log(`🖼️ Simulating IMAGE generation for ${duration / 1000} seconds... (Mock Mode)`);
+  return new Promise(resolve => setTimeout(resolve, duration));
+};
+
+export const simulateVideoGenerationLoading = (): Promise<void> => {
+  const duration = 60000; // 1 minute
+  console.log(`🎬 Simulating VIDEO generation for ${duration / 1000} seconds... (Mock Mode)`);
+  return new Promise(resolve => setTimeout(resolve, duration));
 };
 
 // Helper function to get random items from an array

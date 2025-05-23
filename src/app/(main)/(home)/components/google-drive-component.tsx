@@ -147,9 +147,9 @@ export default function GoogleDriveComponent() {
       case 'txt':
       case 'rtf':
       case 'odt':
-        return <FileText size={16} className="text-blue-400 mr-2 flex-shrink-0" />;
+        return <FileText size={16} className="text-red-400 mr-2 flex-shrink-0" />;
       case 'pdf':
-        return <FileText size={16} className="text-red-400 mr-2 flex-shrink-0" />; // PDF often red
+        return <FileText size={16} className="text-red-500 mr-2 flex-shrink-0" />; // PDF often red
       case 'xls':
       case 'xlsx':
       case 'csv':
@@ -161,22 +161,22 @@ export default function GoogleDriveComponent() {
       case 'bmp':
       case 'svg':
       case 'webp':
-        return <FileImage size={16} className="text-purple-400 mr-2 flex-shrink-0" />;
+        return <FileImage size={16} className="text-orange-400 mr-2 flex-shrink-0" />;
       case 'mp3':
       case 'wav':
       case 'aac':
       case 'ogg':
-        return <Play size={16} className="text-orange-400 mr-2 flex-shrink-0" />; // Using FilePlay for audio
+        return <Play size={16} className="text-yellow-400 mr-2 flex-shrink-0" />; // Using FilePlay for audio
       case 'mp4':
       case 'mov':
       case 'avi':
       case 'mkv':
-        return <Play size={16} className="text-indigo-400 mr-2 flex-shrink-0" />; // Using FilePlay for video
+        return <Play size={16} className="text-red-400 mr-2 flex-shrink-0" />; // Using FilePlay for video
       case 'zip':
       case 'rar':
       case 'tar':
       case 'gz':
-        return <Archive size={16} className="text-yellow-400 mr-2 flex-shrink-0" />;
+        return <Archive size={16} className="text-amber-500 mr-2 flex-shrink-0" />;
       case 'js':
       case 'jsx':
       case 'ts':
@@ -186,7 +186,7 @@ export default function GoogleDriveComponent() {
       case 'json':
       case 'py':
       case 'java':
-        return <FileCode size={16} className="text-teal-400 mr-2 flex-shrink-0" />;
+        return <FileCode size={16} className="text-red-300 mr-2 flex-shrink-0" />;
       default:
         return <FileIcon size={16} className="text-gray-400 mr-2 flex-shrink-0" />;
     }
@@ -198,8 +198,8 @@ export default function GoogleDriveComponent() {
 
     const itemContainerClasses = `flex items-center space-x-2 p-2 mb-1 transition-colors w-full 
       ${item.type === 'folder' 
-        ? 'rounded-md border border-blue-500/20 bg-blue-900/10 hover:bg-blue-800/20 backdrop-blur-sm'
-        : 'rounded-md border border-cyan-500/20 bg-slate-900/30 hover:bg-slate-800/40 backdrop-blur-sm'
+        ? 'rounded-md border border-red-500/20 bg-red-900/10 hover:bg-red-800/20 backdrop-blur-sm'
+        : 'rounded-md border border-red-400/20 bg-slate-900/30 hover:bg-slate-800/40 backdrop-blur-sm'
       }`;
 
     if (item.type === 'folder') {
@@ -213,14 +213,14 @@ export default function GoogleDriveComponent() {
         >
           <div className={itemContainerClasses}>
             <CollapsiblePrimitive.Trigger asChild>
-              <button className="flex items-center text-left flex-grow p-1 rounded hover:bg-blue-800/30 min-w-0 transition-colors">
+              <button className="flex items-center text-left flex-grow p-1 rounded hover:bg-red-800/30 min-w-0 transition-colors">
                 <ChevronRight 
                   size={16} 
-                  className={`transform transition-transform duration-150 ${isFolderOpen ? 'rotate-90' : ''} mr-1 flex-shrink-0 text-blue-400`}
+                  className={`transform transition-transform duration-150 ${isFolderOpen ? 'rotate-90' : ''} mr-1 flex-shrink-0 text-red-400`}
                 />
-                <Folder size={16} className="text-blue-400 mr-2 flex-shrink-0" />
+                <Folder size={16} className="text-red-400 mr-2 flex-shrink-0" />
                 <span 
-                  className="text-sm font-medium cursor-pointer truncate flex-grow min-w-0 glow-text"
+                  className="text-sm font-medium cursor-pointer truncate flex-grow min-w-0 glow-text-red"
                   title={item.name}
                 >
                   {item.name}
@@ -230,7 +230,7 @@ export default function GoogleDriveComponent() {
           </div>
           <CollapsiblePrimitive.Content className="overflow-hidden transition-all duration-300 ease-in-out">
             {item.children && item.children.length > 0 && (
-              <ul className="mt-1 border-l border-dashed border-blue-500/30 ml-2">
+              <ul className="mt-1 border-l border-dashed border-red-500/30 ml-2">
                 {item.children.map((child) => renderItem(child, level + 1))}
               </ul>
             )}
@@ -247,7 +247,7 @@ export default function GoogleDriveComponent() {
           <span style={{ width: '16px' }} className="mr-1 flex-shrink-0"></span>
           {getFileIcon(item.extension)}
           <span 
-            className="text-sm font-medium truncate flex-grow min-w-0 text-cyan-300"
+            className="text-sm font-medium truncate flex-grow min-w-0 text-red-300"
             title={item.name}
           >
             {item.name}
@@ -261,8 +261,8 @@ export default function GoogleDriveComponent() {
     return (
       <div className="p-6 text-center animate-pulse">
         <div className="inline-flex items-center gap-2">
-          <CloudIcon className="h-6 w-6 text-blue-400 animate-pulse" />
-          <span className="glow-text">Loading session...</span>
+          <CloudIcon className="h-6 w-6 text-red-400 animate-pulse" />
+          <span className="glow-text-red">Loading session...</span>
         </div>
       </div>
     );
@@ -271,13 +271,13 @@ export default function GoogleDriveComponent() {
   if (status === 'unauthenticated') {
     return (
       <div className="flex flex-col items-center justify-center p-8 border rounded-lg futuristic-card m-4 animate-fadeIn">
-        <CloudIcon className="h-12 w-12 text-blue-400 mb-4 animate-float" />
+        <CloudIcon className="h-12 w-12 text-red-400 mb-4 animate-float" />
         <p className="mb-6 text-muted-foreground text-center">
           Connect your Google Drive account to browse and manage your files.
         </p>
         <Button 
           onClick={() => signIn('google')} 
-          className="shimmer bg-gradient-to-r from-blue-600/80 to-purple-600/80 border-0 shadow-glow-blue"
+          className="shimmer bg-gradient-to-r from-red-600/80 to-red-700/80 border-0 shadow-glow-red"
         >
           <Sparkles className="mr-2 h-4 w-4" />
           Connect to Google Drive
@@ -290,12 +290,12 @@ export default function GoogleDriveComponent() {
     <div className="flex flex-col space-y-4 relative animate-fadeIn">
       {/* Background effects */}
       <div className="blob w-[250px] h-[250px] top-0 -right-20 opacity-5 z-0"></div>
-      <div className="blob-cyan w-[250px] h-[250px] -bottom-40 -left-20 opacity-5 z-0"></div>
+      <div className="blob-red w-[250px] h-[250px] -bottom-40 -left-20 opacity-5 z-0"></div>
       
       {isLoading && (
         <div className="p-6 text-center animate-pulse flex flex-col items-center">
-          <CloudIcon className="h-8 w-8 text-blue-400 mb-2 animate-spin" />
-          <span className="glow-text">Loading files...</span>
+          <CloudIcon className="h-8 w-8 text-red-400 mb-2 animate-spin" />
+          <span className="glow-text-red">Loading files...</span>
         </div>
       )}
       
@@ -307,13 +307,13 @@ export default function GoogleDriveComponent() {
       )}
       
       {!isLoading && !fetchError && (
-        <ScrollArea className="w-full border border-blue-500/20 rounded-lg p-2 futuristic-card shadow-glow-blue relative z-10">
+        <ScrollArea className="w-full border border-red-500/20 rounded-lg p-2 futuristic-card shadow-glow-red relative z-10">
           <ScrollAreaViewport className="futuristic-scrollbar max-h-[400px]">
             {structure.length > 0 ? (
               <ul>{structure.map((item) => renderItem(item, 0))}</ul>
             ) : (
               <div className="text-muted-foreground text-center p-8 flex flex-col items-center">
-                <FolderIcon className="h-10 w-10 text-blue-400/50 mb-3" />
+                <FolderIcon className="h-10 w-10 text-red-400/50 mb-3" />
                 <p>No files or folders found.</p>
               </div>
             )}
@@ -322,7 +322,7 @@ export default function GoogleDriveComponent() {
       )}
       
       {!isLoading && (
-        <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-blue-500/20 space-y-2 sm:space-y-0 sm:space-x-4 relative z-10">
+        <div className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t border-red-500/20 space-y-2 sm:space-y-0 sm:space-x-4 relative z-10">
           <div className="flex items-center space-x-2 flex-grow min-w-0">
              {/* Hidden File Input */}
              <input 
@@ -336,13 +336,13 @@ export default function GoogleDriveComponent() {
                size="sm" 
                onClick={handleSelectFileClick}
                disabled={isUploading}
-               className="futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
+               className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
              >
-               <FileIcon className="mr-2 h-4 w-4 text-blue-400" />
+               <FileIcon className="mr-2 h-4 w-4 text-red-400" />
                Select File to Upload to Root
              </Button>
              {fileToUpload && (
-               <span className="text-sm text-cyan-400 truncate flex-shrink-0 border border-cyan-500/30 bg-cyan-900/20 px-3 py-1 rounded-full" title={fileToUpload.name}> 
+               <span className="text-sm text-red-400 truncate flex-shrink-0 border border-red-500/30 bg-red-900/20 px-3 py-1 rounded-full" title={fileToUpload.name}> 
                  {fileToUpload.name}
                </span>
              )}
@@ -352,7 +352,7 @@ export default function GoogleDriveComponent() {
             onClick={handleUpload} 
             disabled={!fileToUpload || isUploading}
             size="sm" 
-            className="flex-shrink-0 shimmer bg-gradient-to-r from-blue-600/80 to-cyan-600/80 border-0 shadow-glow-cyan relative overflow-hidden"
+            className="flex-shrink-0 shimmer bg-gradient-to-r from-red-600/80 to-red-700/80 border-0 shadow-glow-red relative overflow-hidden"
           >
             {isUploading ? (
               <span className="flex items-center">

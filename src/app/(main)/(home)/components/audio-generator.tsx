@@ -417,7 +417,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     return (
       <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden mt-2">
         <div 
-          className="h-full bg-gradient-to-r from-blue-500 to-purple-500" 
+          className="h-full bg-gradient-to-r from-red-500 to-red-700"
           style={{ width: `${percent}%` }}
         ></div>
       </div>
@@ -425,14 +425,13 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   };
 
   return (
-    <Card className="w-full futuristic-card animate-fadeIn shadow-glow-blue relative overflow-hidden">
+    <Card className="w-full futuristic-card animate-fadeIn shadow-glow-red relative overflow-hidden">
       {/* Background blobs */}
       <div className="blob w-[200px] h-[200px] -top-20 -right-20 opacity-10"></div>
-      <div className="blob-cyan w-[200px] h-[200px] -bottom-20 -left-20 opacity-10"></div>
       
-      <CardHeader className="relative z-10">
+      <CardHeader className="relative z-10 pt-4 pb-2">
         <CardTitle className="gradient-text flex items-center gap-2">
-          <AudioWaveform className="h-5 w-5 text-blue-400" />
+          <AudioWaveform className="h-5 w-5 text-red-400" />
           Generate Audio
         </CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -440,7 +439,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-6 relative z-10">
+      <CardContent className="space-y-6 relative z-10 pt-4 pb-6">
         <div className="space-y-2">
           <Label htmlFor="text-to-convert" className="glow-text">Text to Convert</Label>
           <Textarea
@@ -489,7 +488,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         <Button 
           onClick={handleGenerateAudio} 
           disabled={isGeneratingAudio || isGeneratingSubtitles || !textToConvert.trim()}
-          className="w-full relative overflow-hidden shimmer bg-gradient-to-r from-blue-600/80 via-purple-600/80 to-cyan-600/80 border-0 shadow-glow-blue"
+          className="w-full relative overflow-hidden shimmer bg-gradient-to-r from-red-600/80 via-red-700/80 to-red-800/80 border-0 shadow-glow-red"
         >
           {(isGeneratingAudio || isGeneratingSubtitles) ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -516,10 +515,10 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
       {(generatedAudioUrl || generatedSubtitlesUrlLocal) && (
         <CardFooter className="flex-col items-start space-y-4 relative z-10">
           {generatedAudioUrl && (
-            <div className="w-full bg-gradient-to-r from-blue-900/20 to-purple-900/20 p-4 rounded-lg border border-blue-500/30 animate-zoomIn">
+            <div className="w-full bg-gradient-to-r from-red-900/20 to-red-800/20 p-4 rounded-lg border border-red-500/30 animate-zoomIn">
                 <Label className="flex items-center mb-2">
                   <CheckCircle className="mr-2 h-5 w-5 text-green-500" /> 
-                  <span className="glow-text">Audio Generated Successfully</span>
+                  <span className="glow-text-red">Audio Generated Successfully</span>
                 </Label>
                 
                 <div className="mt-2">
@@ -547,7 +546,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                     <Button 
                       onClick={handlePlayPause} 
                       size="sm"
-                      className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400"
+                      className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400"
                     >
                         {isPlaying ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                         {isPlaying ? "Pause" : "Play"}
@@ -555,7 +554,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
                     <Button 
                       onClick={handleDownloadAudio} 
                       size="sm"
-                      className="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-400"
+                      className="bg-red-700/20 hover:bg-red-700/30 border border-red-600/30 text-red-300"
                     >
                         <Download className="mr-2 h-4 w-4" />
                         Download Audio
@@ -565,20 +564,20 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
           )}
 
           {isGeneratingSubtitles && (
-            <div className="flex items-center text-muted-foreground w-full bg-blue-900/10 p-3 rounded-lg border border-blue-500/20 animate-pulse">
+            <div className="flex items-center text-muted-foreground w-full bg-red-900/10 p-3 rounded-lg border border-red-500/20 animate-pulse">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               <p>Generating subtitles, please wait...</p>
             </div>
           )}
 
           {generatedSubtitlesUrlLocal && (
-            <div className="w-full bg-gradient-to-r from-cyan-900/20 to-blue-900/20 p-4 rounded-lg border border-cyan-500/30 animate-zoomIn">
+            <div className="w-full bg-gradient-to-r from-red-900/20 to-red-800/20 p-4 rounded-lg border border-red-500/30 animate-zoomIn">
                 <Label className="flex items-center mb-2">
-                  <MessageSquare className="mr-2 h-5 w-5 text-cyan-500" /> 
-                  <span className="glow-text-cyan">Subtitles Generated</span>
+                  <MessageSquare className="mr-2 h-5 w-5 text-red-500" /> 
+                  <span className="glow-text-red">Subtitles Generated</span>
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                    Subtitles URL: <a href={generatedSubtitlesUrlLocal} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{generatedSubtitlesUrlLocal}</a>
+                    Subtitles URL: <a href={generatedSubtitlesUrlLocal} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline transition-colors">{generatedSubtitlesUrlLocal}</a>
                 </p>
             </div>
           )}
