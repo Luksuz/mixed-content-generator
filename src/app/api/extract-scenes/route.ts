@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Script is required' }, { status: 400 });
     }
 
-    if (!numberOfScenes || numberOfScenes < 1 || numberOfScenes > 20) {
+    if (!numberOfScenes || numberOfScenes < 1 || numberOfScenes > 200) {
       return NextResponse.json({ 
         error: 'Number of scenes must be between 1 and 20' 
       }, { status: 400 });

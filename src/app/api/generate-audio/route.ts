@@ -22,8 +22,8 @@ const DEFAULT_CHUNK_PROCESSING_BATCH_SIZE = 5; // Renamed from CHUNK_PROCESSING_
 const DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // Renamed from DELAY_AFTER_CHUNK_BATCH_MS (Default: 66 seconds)
 
 // ElevenLabs specific limits
-const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 10000; // Max characters per chunk for ElevenLabs (reverted to 10000)
-const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 100;
+const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 1000; // Max characters per chunk for ElevenLabs (reverted to 10000)
+const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 5;
 const ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // 1 minute
 
 const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';

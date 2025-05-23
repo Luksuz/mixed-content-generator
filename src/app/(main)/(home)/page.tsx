@@ -327,8 +327,8 @@ const GeneratorsPage = () => {
       setVideoGenerationError("No images selected for video creation.");
       return;
     }
-    if (selectedImageUrls.length > 20) {
-      setVideoGenerationError("Cannot create video with more than 20 images.");
+    if (selectedImageUrls.length > 200) {
+      setVideoGenerationError("Cannot create video with more than 200 images.");
       return;
     }
     if (!generatedAudioUrl) {
