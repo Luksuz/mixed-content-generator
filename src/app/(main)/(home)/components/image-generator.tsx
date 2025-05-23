@@ -449,7 +449,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 <Slider
                   id="number-of-scenes"
                   min={1}
-                  max={20}
+                  max={200}
                   step={1}
                   value={[numberOfScenesToExtract || 5]}
                   onValueChange={(value) => setNumberOfScenesToExtract && setNumberOfScenesToExtract(value[0])}
