@@ -381,6 +381,8 @@ const GeneratorsPage = () => {
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
     // If using mock data, simulate video creation process
     if (USE_MOCK_DATA) {
+      console.log('🎬 Starting mock video generation with', selectedImageUrls.length, 'images');
+      
       if (selectedImageUrls.length === 0) {
         setVideoGenerationError("No images selected for video creation.");
         return;
@@ -402,20 +404,23 @@ const GeneratorsPage = () => {
         user_id: MOCK_USER_ID // Use the mock user ID consistently
       };
       
+      console.log('🎬 Added pending job:', newJobId);
       setVideoJobs(prev => [newJob, ...prev]);
       setIsGeneratingVideo(false);
       
-      // After 10 seconds, update to processing
+      // After 5 seconds, update to processing
       setTimeout(() => {
+        console.log('🎬 Updating job to processing:', newJobId);
         setVideoJobs(prev => prev.map(job => 
           job.id === newJobId 
             ? { ...job, status: "processing" as const, updatedAt: new Date() }
             : job
         ));
-      }, 10000);
+      }, 5000);
       
-      // After 60 seconds total, update to completed with video URL
+      // After 20 seconds total, update to completed with video URL
       setTimeout(() => {
+        console.log('🎬 Completing video job with URL:', mockVideoUrl);
         setVideoJobs(prev => prev.map(job => 
           job.id === newJobId 
             ? { 
@@ -431,8 +436,8 @@ const GeneratorsPage = () => {
         
         // Also set the generated video URL for the VideoGenerator component
         setGeneratedVideoUrl(mockVideoUrl);
-        console.log(`Mock video completed: ${mockVideoUrl}`);
-      }, 60000);
+        console.log(`🎬 Mock video completed and URL set: ${mockVideoUrl}`);
+      }, 20000);
       
       return;
     }

@@ -8,11 +8,6 @@ import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle, Pl
 import { useState, useEffect, useMemo } from "react";
 import { GeneratedImageSet } from "@/types/image-generation";
 import { motion } from "framer-motion";
-import {
-  mockVideoUrl,
-  mockThumbnailUrl,
-  simulateVideoGenerationLoading,
-} from "@/lib/mock-data";
 
 interface VideoGeneratorProps {
   availableImageSets: GeneratedImageSet[];
@@ -24,7 +19,7 @@ interface VideoGeneratorProps {
   thumbnailUrl?: string | null;
 }
 
-const MAX_SELECTED_IMAGES = 20;
+const MAX_SELECTED_IMAGES = 50;
 
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   availableImageSets,
@@ -38,10 +33,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
-
-  const [isLocallyGenerating, setIsLocallyGenerating] = useState(false);
-
-  const isMockMode = process.env.NODE_ENV === 'development';
 
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
@@ -71,35 +62,26 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
     setLocalError(null);
     setShowSuccessMessage(false);
 
-    if (isMockMode) {
-      setIsLocallyGenerating(true);
-      if (onVideoGenerated) {
-        onVideoGenerated(null);
-      }
-      setShowSuccessMessage(true);
-      await simulateVideoGenerationLoading();
-      if (onVideoGenerated) {
-        onVideoGenerated(mockVideoUrl);
-      }
-      setIsLocallyGenerating(false);
-    } else {
-      await onStartVideoCreation(selectedImageUrls);
-      setShowSuccessMessage(true);
-    }
+    // Always call the parent's video creation function
+    await onStartVideoCreation(selectedImageUrls);
+    setShowSuccessMessage(true);
   };
 
   useEffect(() => {
     setSelectedImageUrls(prevSelected => prevSelected.filter(url => allImageUrls.includes(url)));
   }, [allImageUrls]);
 
-  const currentlyGenerating = isMockMode ? isLocallyGenerating : isGeneratingVideo;
+  // Debug: Track when video URL changes
+  useEffect(() => {
+    console.log('🎬 VideoGenerator: generatedVideoUrl changed:', generatedVideoUrl);
+  }, [generatedVideoUrl]);
 
   // Hide success message after 10 seconds
   useEffect(() => {
     if (showSuccessMessage) {
       const timer = setTimeout(() => {
         setShowSuccessMessage(false);
-      }, 10000);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [showSuccessMessage]);
@@ -166,6 +148,113 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </motion.div>
             )}
 
+            {isGeneratingVideo && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 backdrop-blur-md bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/30 rounded-lg p-4"
+              >
+                <div>
+                  <Label className="text-lg font-semibold flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-200 to-purple-400">
+                      Video Generation in Progress
+                    </span>
+                  </Label>
+                  <p className="text-sm text-slate-300 ml-7">
+                    Neural rendering pipeline processing your visual assets...
+                  </p>
+                </div>
+                <div className="border border-blue-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 mx-auto relative">
+                      <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
+                      <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                      <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-blue-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      Estimated completion: ~20 seconds
+                    </p>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {generatedVideoUrl !== null && generatedVideoUrl !== "" && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 backdrop-blur-md bg-gradient-to-r from-green-900/20 to-emerald-900/20 border border-green-700/30 rounded-lg p-4 shadow-glow-green"
+              >
+                <div>
+                  <Label className="text-lg font-semibold flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-emerald-400">
+                      Video Generation Complete
+                    </span>
+                  </Label>
+                  <p className="text-sm text-slate-300 ml-7">
+                    Your neural video synthesis has been successfully rendered.
+                  </p>
+                </div>
+                <div className="border border-green-700/30 rounded-md p-3 bg-black/20">
+                  <video 
+                    src={generatedVideoUrl} 
+                    controls 
+                    className="w-full rounded-md shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                    poster={thumbnailUrl || "/image_gen/generated_image_0_1.png"}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                  <div className="mt-3 p-2 bg-black/40 rounded text-xs text-green-200 font-mono">
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-400">Video URL:</span>
+                      <span className="break-all">{generatedVideoUrl}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = generatedVideoUrl;
+                      link.download = 'generated-video.mp4';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="bg-green-900/30 hover:bg-green-800/40 border-green-700/30 text-green-200"
+                  >
+                    <Video className="h-4 w-4 mr-2" />
+                    Download Video
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(generatedVideoUrl)}
+                    className="bg-green-900/30 hover:bg-green-800/40 border-green-700/30 text-green-200"
+                  >
+                    Copy URL
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(generatedVideoUrl, '_blank')}
+                    className="bg-green-900/30 hover:bg-green-800/40 border-green-700/30 text-green-200"
+                  >
+                    Open in New Tab
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+
             {localError && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -194,7 +283,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </motion.div>
             )}
 
-            {showSuccessMessage && !currentlyGenerating && !videoGenerationError && (
+            {showSuccessMessage && !isGeneratingVideo && !videoGenerationError && (
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -283,11 +372,11 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               <Button
                 className="w-full rounded-md py-6 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] relative overflow-hidden border-0 transition-all duration-300"
                 onClick={handleConfirmAndCreateVideo}
-                disabled={currentlyGenerating || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
+                disabled={isGeneratingVideo || selectedImageUrls.length === 0 || selectedImageUrls.length > MAX_SELECTED_IMAGES}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
                 <div className="flex items-center justify-center gap-2">
-                  {currentlyGenerating ? (
+                  {isGeneratingVideo ? (
                     <>
                       <Loader2 className="mr-1 h-5 w-5 animate-spin" />
                       <span className="text-lg font-medium">Synthesizing Video...</span>
