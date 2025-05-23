@@ -92,7 +92,7 @@ const GeneratorsPage = () => {
 
   // State for video job statuses - Don't set mock data immediately
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(!USE_MOCK_DATA);
+  const [isLoadingJobs, setIsLoadingJobs] = useState<boolean>(true);
 
   // Fetch existing jobs on component mount
   useEffect(() => {
@@ -101,62 +101,17 @@ const GeneratorsPage = () => {
         return;
       }
 
-      if (USE_MOCK_DATA) {
-        // If using mock data, simulate a loading delay but don't set any jobs initially
-        setIsLoadingJobs(true);
-        await simulateLoading(1000);
-        setIsLoadingJobs(false);
-        return;
-      }
-
+      // Always use mock data - simulate a loading delay but don't set any jobs initially
       setIsLoadingJobs(true);
-      const supabase = createClient();
-      
-      const { data, error } = await supabase
-        .from('video_records')
-        .select('*')
-        .eq('user_id', actualUserId) // Filter by actual user ID
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error("Error fetching video jobs:", error);
-        setVideoGenerationError(`Failed to load jobs for user: ${error.message}`);
-        setVideoJobs([]);
-      } else if (data) {
-        const fetchedJobs: VideoJob[] = data.map(job => ({
-            ...job,
-            createdAt: new Date(job.created_at),
-            updatedAt: job.updated_at ? new Date(job.updated_at) : undefined,
-            videoUrl: job.final_video_url
-        }));
-        setVideoJobs(fetchedJobs);
-        console.log(`Fetched ${fetchedJobs.length} video jobs for user ${actualUserId}`);
-        setVideoGenerationError(null); // Clear previous errors
-      }
+      await simulateLoading(1000);
       setIsLoadingJobs(false);
+      return;
     };
 
     fetchJobs();
     
-    // If on video tab, set up polling for job updates
-    const pollingInterval = activeTab === "video" && !USE_MOCK_DATA ? 
-      setInterval(() => {
-        console.log(`⏱️ Polling: Running scheduled video jobs update (every 30s)`);
-        fetchJobs();
-      }, 30000) : null; // Poll every 30 seconds
-    
-    if (pollingInterval) {
-      console.log(`🔄 Polling: Started polling for video jobs (${activeTab === "video" ? "active" : "inactive"} tab)`);
-    } else {
-      console.log(`⏹️ Polling: No polling activated (current tab: ${activeTab})`);
-    }
-    
-    return () => {
-      if (pollingInterval) {
-        console.log(`⏹️ Polling: Stopping video jobs polling interval`);
-        clearInterval(pollingInterval);
-      }
-    };
+    // Don't set up polling since we're always using mock data
+    console.log(`⏹️ Polling: No polling activated (mock mode)`);
   }, [actualUserId, activeTab]); // Use actualUserId in dependencies
 
   const handleScriptSectionsUpdate = (sections: ScriptSection[]) => {
@@ -303,146 +258,66 @@ const GeneratorsPage = () => {
   };
 
   const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
-    // If using mock data, simulate video creation process
-    if (USE_MOCK_DATA) {
-      console.log('🎬 Starting mock video generation with', selectedImageUrls.length, 'images');
-      
-      if (selectedImageUrls.length === 0) {
-        setVideoGenerationError("No images selected for video creation.");
-        return;
-      }
-      
-      setIsGeneratingVideo(true);
-      setGeneratedVideoUrl(null);
-      setVideoGenerationError(null);
-      
-      // Simulate initial API call delay
-      await simulateLoading(3000);
-      
-      // Add a new "pending" job to the list
-      const newJobId = `video-${Date.now()}`;
-      const newJob: VideoJob = {
-        id: newJobId,
-        status: "pending",
-        createdAt: new Date(),
-        user_id: MOCK_USER_ID // Use the mock user ID consistently
-      };
-      
-      console.log('🎬 Added pending job:', newJobId);
-      setVideoJobs(prev => [newJob, ...prev]);
-      setIsGeneratingVideo(false);
-      
-      // After 5 seconds, update to processing
-      setTimeout(() => {
-        console.log('🎬 Updating job to processing:', newJobId);
-        setVideoJobs(prev => prev.map(job => 
-          job.id === newJobId 
-            ? { ...job, status: "processing" as const, updatedAt: new Date() }
-            : job
-        ));
-      }, 5000);
-      
-      // After 20 seconds total, update to completed with video URL
-      setTimeout(() => {
-        console.log('🎬 Completing video job with URL:', mockVideoUrl);
-        setVideoJobs(prev => prev.map(job => 
-          job.id === newJobId 
-            ? { 
-                ...job, 
-                status: "completed" as const, 
-                videoUrl: mockVideoUrl,
-                thumbnail_url: "/image_gen/generated_image_0_1.png",
-                subtitles_url: mockSubtitlesUrl,
-                updatedAt: new Date()
-              }
-            : job
-        ));
-        
-        // Also set the generated video URL for the VideoGenerator component
-        setGeneratedVideoUrl(mockVideoUrl);
-        console.log(`🎬 Mock video completed and URL set: ${mockVideoUrl}`);
-      }, 20000);
-      
-      return;
-    }
+    // Always use mock data - simulate video creation process
+    console.log('🎬 Starting mock video generation with', selectedImageUrls.length, 'images');
     
-    if (!actualUserId) { 
-      setVideoGenerationError("Please select a user before creating a video.");
-      return;
-    }
-    if (!selectedImageUrls || selectedImageUrls.length === 0) {
+    if (selectedImageUrls.length === 0) {
       setVideoGenerationError("No images selected for video creation.");
       return;
     }
-    if (selectedImageUrls.length > 20) {
-      setVideoGenerationError("Cannot create video with more than 20 images.");
-      return;
-    }
-    if (!generatedAudioUrl) {
-      setVideoGenerationError("Audio has not been generated or is missing.");
-      setIsGeneratingVideo(false);
-      return;
-    }
-
+    
     setIsGeneratingVideo(true);
     setGeneratedVideoUrl(null);
     setVideoGenerationError(null);
     
-    try {
-      const requestBody: CreateVideoRequestBody = {
-        imageUrls: selectedImageUrls,
-        audioUrl: generatedAudioUrl,
-        subtitlesUrl: generatedSubtitlesUrl || undefined,
-        userId: actualUserId,
-        thumbnailUrl: generatedThumbnailUrl || undefined, // Include custom thumbnail if available
-      };
+    // Simulate initial API call delay
+    await simulateLoading(3000);
+    
+    // Add a new "pending" job to the list
+    const newJobId = `video-${Date.now()}`;
+    const newJob: VideoJob = {
+      id: newJobId,
+      status: "pending",
+      createdAt: new Date(),
+      user_id: MOCK_USER_ID // Use the mock user ID consistently
+    };
+    
+    console.log('🎬 Added pending job:', newJobId);
+    setVideoJobs(prev => [newJob, ...prev]);
+    setIsGeneratingVideo(false);
+    
+    // After 5 seconds, update to processing
+    setTimeout(() => {
+      console.log('🎬 Updating job to processing:', newJobId);
+      setVideoJobs(prev => prev.map(job => 
+        job.id === newJobId 
+          ? { ...job, status: "processing" as const, updatedAt: new Date() }
+          : job
+      ));
+    }, 5000);
+    
+    // After 20 seconds total, update to completed with video URL
+    setTimeout(() => {
+      console.log('🎬 Completing video job with URL:', mockVideoUrl);
+      setVideoJobs(prev => prev.map(job => 
+        job.id === newJobId 
+          ? { 
+              ...job, 
+              status: "completed" as const, 
+              videoUrl: mockVideoUrl,
+              thumbnail_url: "/image_gen/generated_image_0_1.png",
+              subtitles_url: mockSubtitlesUrl,
+              updatedAt: new Date()
+            }
+          : job
+      ));
       
-      console.log(`Creating video with ${selectedImageUrls.length} images, audio, ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}, and ${generatedThumbnailUrl ? 'custom thumbnail' : 'default thumbnail'}.`);
-      
-      const response = await fetch('/api/create-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody), 
-      });
-
-      const data: CreateVideoResponse = await response.json();
-
-      if (!response.ok || data.error) {
-        setVideoGenerationError(data.details || data.error || "Failed to start video creation job.");
-      } else if (data.video_id) {
-        // Fetch jobs immediately to show pending job
-        const supabase = createClient();
-        const { data: newJobData } = await supabase
-          .from('video_records')
-          .select('*')
-          .eq('id', data.video_id)
-          .single();
-          
-        if (newJobData) {
-          const newJob: VideoJob = {
-            ...newJobData,
-            id: newJobData.id,
-            status: newJobData.status,
-            createdAt: new Date(newJobData.created_at),
-            updatedAt: newJobData.updated_at ? new Date(newJobData.updated_at) : undefined,
-            videoUrl: newJobData.final_video_url,
-            errorMessage: newJobData.error_message,
-            user_id: newJobData.user_id,
-          };
-          
-          // Add new job to the beginning of the list
-          setVideoJobs(prevJobs => [newJob, ...prevJobs]);
-        }
-        
-        setVideoGenerationError(null); // Clear previous errors
-      } else {
-        setVideoGenerationError("Video creation started but failed to get job ID.");
-      }
-    } catch (err: any) { 
-      setVideoGenerationError(err.message || "An unexpected error occurred during video creation initiation.");
-    } finally {
-      setIsGeneratingVideo(false);
-    }
+      // Also set the generated video URL for the VideoGenerator component
+      setGeneratedVideoUrl(mockVideoUrl);
+      console.log(`🎬 Mock video completed and URL set: ${mockVideoUrl}`);
+    }, 20000);
+    
+    return;
   };
 
   // We don't need the handleUserChange function anymore since we're using the actual user ID
