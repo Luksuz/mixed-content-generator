@@ -168,7 +168,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     setSelectedImages([]);
   };
 
-  // Thumbnail Generation Handler - Updated to use mock data in development
+  // Thumbnail Generation Handler - Always use mock data
   const handleGenerateThumbnail = async () => {
     if (!thumbnailPrompt.trim()) {
       setThumbnailError("Please enter a prompt for the thumbnail.");
@@ -179,37 +179,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     setThumbnailError(null);
 
     try {
-      // Use mock data in development mode
-      if (process.env.NODE_ENV === 'development') {
-        const mockThumbnailUrl = await simulateThumbnailGeneration(thumbnailPrompt);
-        setThumbnailUrl(mockThumbnailUrl);
-        
-        // Notify parent component about the new thumbnail
-        if (onThumbnailGenerated && mockThumbnailUrl) {
-          onThumbnailGenerated(mockThumbnailUrl);
-        }
-      } else {
-        // Regular API call for production
-        const response = await fetch('/api/generate-thumbnail', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ prompt: thumbnailPrompt }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || data.details || 'Failed to generate thumbnail');
-        }
-
-        setThumbnailUrl(data.thumbnailUrl);
-        
-        // Notify parent component about the new thumbnail
-        if (onThumbnailGenerated && data.thumbnailUrl) {
-          onThumbnailGenerated(data.thumbnailUrl);
-        }
+      // Always use mock data
+      const mockThumbnailUrl = await simulateThumbnailGeneration(thumbnailPrompt);
+      setThumbnailUrl(mockThumbnailUrl);
+      
+      // Notify parent component about the new thumbnail
+      if (onThumbnailGenerated && mockThumbnailUrl) {
+        onThumbnailGenerated(mockThumbnailUrl);
       }
     } catch (error: any) {
       console.error("Thumbnail generation failed:", error);
