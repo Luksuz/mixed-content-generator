@@ -8,6 +8,11 @@ import { Volume2, Download, Play, Pause, Loader2, AlertCircle, CheckCircle, Mess
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import {
+  mockAudioUrl,
+  mockSubtitlesUrl, // Add if you plan to use mock subtitles
+  simulateAudioGenerationLoading,
+} from "@/lib/mock-data";
 
 // Placeholder types (as the original files are missing)
 type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Removed "google-tts"
@@ -187,44 +192,15 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     setSubtitleGenerationError(null);
 
     try {
-      const requestBody: GenerateAudioRequestBody = {
-        text: textToConvert,
-        provider: selectedProvider,
-        voice: selectedVoice,
-        userId: selectedUserId || 'unknown_user',
-      };
-      // Add provider-specific fields if necessary
-      if (selectedProvider === 'minimax-tts') {
-        requestBody.model = minimaxModel; // Example, ensure minimaxModel state is set
-      } else if (selectedProvider === 'fish-audio') {
-        requestBody.fishAudioVoiceId = fishAudioVoiceId;
-        requestBody.fishAudioModel = fishAudioModel;
-      } else if (selectedProvider === 'elevenlabs') {
-        requestBody.elevenLabsVoiceId = elevenLabsVoiceId;
-        requestBody.elevenLabsModelId = elevenLabsModelId;
-      }
+      await simulateAudioGenerationLoading(); // Simulate API call delay
 
+      onAudioGenerated(mockAudioUrl);
+      // Optionally set mock subtitles if you have them and want to display them
+      // onSubtitlesGenerated(mockSubtitlesUrl);
+      // setGeneratedSubtitlesUrlLocal(mockSubtitlesUrl); // if using local state for subtitles
 
-      const response = await fetch("/api/generate-audio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data: GenerateAudioResponse = await response.json();
-
-      if (!response.ok || data.error) {
-        throw new Error(data.details || data.error || "Failed to generate audio");
-      }
-
-      if (data.audioUrl) {
-        onAudioGenerated(data.audioUrl); // This will trigger the useEffect to set src
-        handleGenerateSubtitles(data.audioUrl);
-      } else {
-        throw new Error("Audio URL not found in response");
-      }
-    } catch (err: any) {
-      setAudioGenerationError(err.message || "An unexpected error occurred.");
+    } catch (error: any) {
+      setAudioGenerationError(error.message || "An unexpected error occurred.");
       onAudioGenerated(null);
     } finally {
       setIsGeneratingAudio(false);

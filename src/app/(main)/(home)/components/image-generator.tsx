@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Sparkles, AlertCircle, CheckCircle } from "lucide-react";
-import { simulateThumbnailGeneration } from "@/lib/mock-data";
+import { simulateThumbnailGeneration, mockGeneratedImageSets, simulateImageGenerationLoading } from "@/lib/mock-data";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -32,6 +32,7 @@ interface ImageGeneratorProps {
   onStartGenerationRequest: (provider: ImageProvider, numImagesPerPrompt: number, manualSinglePrompt?: string) => Promise<void>;
   onRegenerateImages?: (provider: ImageProvider, prompts: string[]) => Promise<void>;
   onThumbnailGenerated?: (thumbnailUrl: string) => void;
+  onImageSetsGenerated: (imageSets: GeneratedImageSet[]) => void;
 }
 
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({
@@ -44,7 +45,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   generatingInfo,
   onStartGenerationRequest,
   onRegenerateImages,
-  onThumbnailGenerated
+  onThumbnailGenerated,
+  onImageSetsGenerated
 }) => {
   const [manualPrompt, setManualPrompt] = useState(""); // Was 'prompt'
   const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("openai"); // Was 'style'
@@ -64,6 +66,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   
+  // Local loading state for mock mode
+  const [isLocallyGenerating, setIsLocallyGenerating] = useState(false);
+  
   // Check if we're in mock data mode
   const isMockMode = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
   
@@ -81,21 +86,25 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     return [...sectionPrompts, ...customPrompts];
   }
 
-  const handleGenerateClick = () => {
+  const handleGenerateClick = async () => {
     // Get all selected prompts (from sections and custom)
     const selectedPrompts = getSelectedPrompts();
-    
-    // If we have selected prompts, use those
-    if (selectedPrompts.length > 0) {
-      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, selectedPrompts.join('|||||'));
-    } 
-    // Otherwise, use the manual prompt if available
-    else if (manualPrompt.trim() !== "") {
-      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, manualPrompt.trim());
-    } 
-    // No prompts available
-    else {
+    const promptsToUse = selectedPrompts.length > 0 ? selectedPrompts.join('|||||') : manualPrompt.trim();
+
+    if (!promptsToUse) {
       console.error("No prompt provided for image generation.");
+      // Optionally set an error state to inform the user
+      return;
+    }
+
+    if (isMockMode) {
+      setIsLocallyGenerating(true);
+      onImageSetsGenerated([]); // Clear previous images
+      await simulateImageGenerationLoading();
+      onImageSetsGenerated(mockGeneratedImageSets);
+      setIsLocallyGenerating(false);
+    } else {
+      onStartGenerationRequest(selectedProvider, numImagesPerPrompt, promptsToUse);
     }
   };
   
@@ -230,6 +239,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   const selectedPromptCount = selectedSections.length + customPrompts.length;
   const displayPromptCount = selectedPromptCount > 0 ? selectedPromptCount : (manualPrompt.trim() !== '' ? 1 : 0);
 
+  const handleImageSetsGenerated = (imageSets: GeneratedImageSet[]) => {
+    onImageSetsGenerated(imageSets);
+  };
+
+  // Determine overall loading state
+  const currentlyGenerating = isMockMode ? isLocallyGenerating : isLoadingImages;
+
   return (
     <Tabs defaultValue="image-generation" className="space-y-8">
       <TabsList className="grid w-full grid-cols-2 backdrop-blur-sm bg-opacity-20 bg-red-900 border border-red-700/20 shadow-glow-red rounded-xl p-1">
@@ -331,13 +347,13 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 placeholder="Add a custom image prompt..."
                 value={newCustomPrompt}
                 onChange={(e) => setNewCustomPrompt(e.target.value)}
-                disabled={isLoadingImages}
+                disabled={currentlyGenerating}
                 className="flex-grow futuristic-input"
               />
               <Button 
                 variant="outline"
                 onClick={addCustomPrompt}
-                disabled={isLoadingImages || !newCustomPrompt.trim()}
+                disabled={currentlyGenerating || !newCustomPrompt.trim()}
                 className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
               >
                 <Plus className="h-4 w-4 text-red-400" />
@@ -375,7 +391,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 placeholder="Describe a single image you want to generate..."
                 value={manualPrompt}
                 onChange={(e) => setManualPrompt(e.target.value)}
-                disabled={isLoadingImages}
+                disabled={currentlyGenerating}
                 className="futuristic-input"
               />
             </div>
@@ -390,7 +406,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 className="futuristic-input w-full rounded-md px-3 py-2"
                 value={selectedProvider}
                 onChange={(e) => setSelectedProvider(e.target.value as ImageProvider)}
-                disabled={isLoadingImages}
+                disabled={currentlyGenerating}
               >
                 <option value="openai">OpenAI (DALL-E 3)</option>
                 <option value="minimax">Minimax</option>
@@ -411,7 +427,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 step={1}
                 value={[numImagesPerPrompt]}
                 onValueChange={(value: number[]) => setNumImagesPerPrompt(value[0])}
-                disabled={isLoadingImages}
+                disabled={currentlyGenerating}
                 aria-label="Number of images per prompt"
                 className="[&>[role=slider]]:bg-red-600 [&>[role=slider]]:shadow-glow-red"
               />
@@ -423,7 +439,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 <Label htmlFor="minimax-aspect-ratio" className="glow-text-red">Aspect Ratio (Minimax)</Label>
                 <select 
                   id="minimax-aspect-ratio"
-                  disabled={isLoadingImages}
+                  disabled={currentlyGenerating}
                   className="futuristic-input w-full rounded-md px-3 py-2"
                   defaultValue="16:9"
                 >
@@ -437,9 +453,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               <Button 
                 className="w-full flex items-center justify-center gap-2 shimmer bg-gradient-to-r from-red-600/80 to-red-800/80 border-0 shadow-glow-red relative overflow-hidden" 
                 onClick={handleGenerateClick}
-                disabled={isLoadingImages || !promptsAvailable}
+                disabled={currentlyGenerating || !promptsAvailable}
               >
-                {isLoadingImages ? (
+                {currentlyGenerating ? (
                   <>
                     <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     <span>{generatingInfo || "Generating..."}</span>
@@ -493,7 +509,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 variant="outline" 
                 size="sm" 
                 onClick={() => setSelectedImages([])}
-                disabled={isLoadingImages}
+                disabled={currentlyGenerating}
                 className="futuristic-input hover:bg-red-700/20 hover:shadow-glow-red"
               >
                 <X className="h-4 w-4 mr-2 text-red-400" />
@@ -503,7 +519,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 variant="default" 
                 size="sm"
                 onClick={handleRegenerateClick}
-                disabled={isLoadingImages || selectedImages.length === 0}
+                disabled={currentlyGenerating || selectedImages.length === 0}
                 className="shimmer bg-gradient-to-r from-red-700/80 to-red-900/80 border-0 shadow-glow-red flex items-center gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
@@ -514,7 +530,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         )}
 
         {/* Error Display */}
-        {generationError && (
+        {generationError && !currentlyGenerating && (
           <div className="animate-slideUp p-4 bg-red-900/20 border border-red-700/30 text-red-200 rounded-md">
             <div className="flex items-center gap-2 mb-1">
               <AlertCircle className="h-5 w-5 text-red-400" />
@@ -527,9 +543,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         {/* Generated Images */}
         <div className="space-y-6">
            {/* Loading state or initial placeholder */}
-          {(isLoadingImages && imageSets.length === 0) || (!isLoadingImages && imageSets.length === 0 && promptsAvailable && !generationError) ? (
+          {(currentlyGenerating && imageSets.length === 0) || (!currentlyGenerating && imageSets.length === 0 && promptsAvailable && !generationError) ? (
             <div className="h-[300px] flex flex-col items-center justify-center futuristic-card text-center p-8 animate-pulse">
-              {isLoadingImages ? (
+              {currentlyGenerating ? (
                 <>
                   <div className="w-16 h-16 relative mb-4">
                     <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-red-500 animate-spin"></div>
@@ -554,7 +570,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             <div key={setIndex} className="p-4 futuristic-card shadow-glow-red animate-slideUp" style={{animationDelay: `${setIndex * 150}ms`}}>
               <h3 className="text-lg font-semibold mb-1 glow-text-red">Prompt:</h3>
               <p className="text-sm text-muted-foreground mb-3 italic truncate">"{set.originalPrompt}"</p>
-              {(set.imageUrls.length === 0 && set.imageData.length === 0) && !isLoadingImages && (
+              {(set.imageUrls.length === 0 && set.imageData.length === 0) && !currentlyGenerating && (
                   <p className="text-sm text-red-500">No images were generated for this prompt. Check errors or server logs.</p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

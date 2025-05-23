@@ -11,6 +11,12 @@ import { Download, Upload, RefreshCw, Sparkles, FileText, DownloadCloud } from "
 import ReactMarkdown from "react-markdown";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
+import {
+  mockScriptSections,
+  mockFullScriptMarkdown,
+  mockFullScriptCleaned,
+  simulateScriptGenerationLoading,
+} from "@/lib/mock-data";
 
 // Add new prop for callback
 interface ScriptGeneratorProps {
@@ -117,28 +123,10 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       setIsLoading(true);
       if (onFullScriptChange) onFullScriptChange({ scriptWithMarkdown: "", scriptCleaned: "" });
       
-      const response = await fetch("/api/generate-script", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          title, 
-          wordCount, 
-          theme, 
-          additionalPrompt, 
-          inspirationalTranscript, 
-          forbiddenWords 
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to generate script outline");
-      }
-      
-      const data = await response.json();
+      await simulateScriptGenerationLoading(); // Simulate API call delay
+
       if (onScriptSectionsChange) {
-        onScriptSectionsChange(data.sections);
+        onScriptSectionsChange(mockScriptSections);
       }
     } catch (error) {
       console.error("Error generating script outline:", error);
@@ -152,35 +140,20 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     
     try {
       setIsGeneratingScript(true);
-      const response = await fetch("/api/generate-full-script", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          title, 
-          theme, 
-          sections: currentScriptSections,
-          additionalPrompt,
-          forbiddenWords
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to generate full script");
-      }
-      
-      const data = await response.json();
+      await simulateScriptGenerationLoading(); // Simulate API call delay
+
+      const mockData = {
+        scriptWithMarkdown: mockFullScriptMarkdown,
+        scriptCleaned: mockFullScriptCleaned,
+      };
+
       if (onFullScriptChange) {
-        onFullScriptChange(data);
+        onFullScriptChange(mockData);
       }
       
       // Set the word count if it's included in the response
-      if (data.wordCount) {
-        setScriptWordCount(data.wordCount);
-      } else {
-        // Otherwise, calculate it from the script
-        updateScriptWordCount(data.scriptWithMarkdown);
+      if (mockData.scriptWithMarkdown) {
+        updateScriptWordCount(mockData.scriptWithMarkdown);
       }
     } catch (error) {
       console.error("Error generating full script:", error);

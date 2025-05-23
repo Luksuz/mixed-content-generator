@@ -75,7 +75,7 @@ const GeneratorsPage = () => {
   const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>(USE_MOCK_DATA ? mockGeneratedImageSets : []);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
   const [currentImageGeneratingInfo, setCurrentImageGeneratingInfo] = useState<string | null>(null);
-  
+  const [imageSets, setImageSets] = useState<GeneratedImageSet[]>([]);
   // Thumbnail State - New
   const [generatedThumbnailUrl, setGeneratedThumbnailUrl] = useState<string | null>(USE_MOCK_DATA ? mockThumbnailUrl : null);
 
@@ -646,6 +646,7 @@ const GeneratorsPage = () => {
                     onStartGenerationRequest={handleStartImageGeneration}
                     onRegenerateImages={handleRegenerateImages}
                     onThumbnailGenerated={handleThumbnailGenerated}
+                    onImageSetsGenerated={setImageSets}
                   />
                 </div>
               )}
