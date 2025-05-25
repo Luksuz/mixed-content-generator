@@ -91,6 +91,7 @@ The WRITING INSTRUCTIONS already contain guidance on plot, character interaction
 
 Format the spoken text using Markdown where appropriate for emphasis or stylistic representation of speech (e.g., **bold** for emphasis, *italics* for thoughts if narrated).
 Maintain a word count of at least 1000 words for this section, consisting purely of speakable text.
+Keep sentences short for clarity and impact.
 `;
 
         // Generate content for this section

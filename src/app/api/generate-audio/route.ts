@@ -26,6 +26,10 @@ const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 1000; // Max characters per chunk for 
 const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 5;
 const ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // 1 minute
 
+// Fish Audio specific limits
+const FISH_AUDIO_CHUNK_PROCESSING_BATCH_SIZE = 3;
+const FISH_AUDIO_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1000; // 60 seconds (3 requests per minute)
+
 const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
 
 // --- Initialize Clients & Config ---
@@ -619,8 +623,12 @@ export async function POST(request: Request) {
         break; // All chunks done
       }
 
-      const currentBatchSize = provider === "elevenlabs" ? ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE : DEFAULT_CHUNK_PROCESSING_BATCH_SIZE;
-      const currentDelayAfterBatch = provider === "elevenlabs" ? ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS : DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS;
+      const currentBatchSize = provider === "elevenlabs" ? ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE : 
+                               provider === "fish-audio" ? FISH_AUDIO_CHUNK_PROCESSING_BATCH_SIZE : 
+                               DEFAULT_CHUNK_PROCESSING_BATCH_SIZE;
+      const currentDelayAfterBatch = provider === "elevenlabs" ? ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS : 
+                                     provider === "fish-audio" ? FISH_AUDIO_DELAY_AFTER_CHUNK_BATCH_MS : 
+                                     DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS;
 
       console.log(`🌀 In Overall Attempt ${attempt}, ${tasksForThisAttempt.length} chunks pending. Processing in batches of up to ${currentBatchSize}. Delay between batches: ${currentDelayAfterBatch/1000}s.`);
 

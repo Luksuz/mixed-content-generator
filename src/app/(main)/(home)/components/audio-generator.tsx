@@ -599,7 +599,7 @@ const fishAudioVoices: VoiceOption[] = [
               disabled={isGeneratingAudio || isGeneratingSubtitles}
               className="w-full p-2 border rounded mt-1 bg-background text-foreground"
             >
-              <option value="elevenlabs">ElevenLabs</option>
+              {/*<option value="elevenlabs">ElevenLabs</option>*/}
               <option value="minimax">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
