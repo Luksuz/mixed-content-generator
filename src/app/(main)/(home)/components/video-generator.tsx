@@ -106,11 +106,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               >
                 <Film size={28} className="text-red-400" />
               </motion.div>
-              <span>Neurovision™ Studio</span>
+              <span>Compiling Studio</span>
             </CardTitle>
-            <CardDescription className="text-slate-300">
-              Craft cinematic masterpieces with AI-powered video synthesis. Select your imagery for our advanced rendering pipeline.
-            </CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6 pt-4">

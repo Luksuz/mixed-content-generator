@@ -12,9 +12,6 @@ const MusicTab: React.FC = () => {
           <Music2 className="h-5 w-5 text-red-400" />
           Music Generation
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          AI-powered music generation and selection for your videos.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative z-10">
         <p className="text-muted-foreground">Music generation features are under development.</p>

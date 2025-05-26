@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Lightbulb, Search, RefreshCw, CheckCircle } from 'lucide-react';
+import { Lightbulb, Search, RefreshCw, CheckCircle, Plus, X } from 'lucide-react';
 import { motion } from "framer-motion";
 
 interface TopicGroup {
@@ -20,6 +20,10 @@ const IdeationTab: React.FC = () => {
   const [topicGroups, setTopicGroups] = useState<TopicGroup[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // New state for multiple links
+  const [links, setLinks] = useState<string[]>([]);
+  const [newLink, setNewLink] = useState("");
 
   // Mock data for demonstration
   const mockTopicGroups: TopicGroup[] = [
@@ -102,6 +106,17 @@ const IdeationTab: React.FC = () => {
     }
   ];
 
+  const addLink = () => {
+    if (newLink.trim() && !links.includes(newLink.trim())) {
+      setLinks(prev => [...prev, newLink.trim()]);
+      setNewLink("");
+    }
+  };
+
+  const removeLink = (index: number) => {
+    setLinks(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
@@ -161,12 +176,55 @@ const IdeationTab: React.FC = () => {
           <Lightbulb className="h-5 w-5 text-red-400" />
           Ideation Assistant
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Discover engaging content ideas with AI-powered topic suggestions.
-        </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6 relative z-10">
+        {/* Links Section */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-link" className="glow-text">Reference Links</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-link"
+                placeholder="Add a reference link (URL, article, video, etc.)"
+                value={newLink}
+                onChange={(e) => setNewLink(e.target.value)}
+                className="futuristic-input"
+                onKeyPress={(e) => e.key === 'Enter' && addLink()}
+              />
+              <Button 
+                variant="outline"
+                onClick={addLink}
+                disabled={!newLink.trim()}
+                className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
+              >
+                <Plus className="h-4 w-4 text-red-400" />
+              </Button>
+            </div>
+            
+            {links.length > 0 && (
+              <div className="space-y-2">
+                {links.map((link, index) => (
+                  <div key={index} className="flex items-center gap-2 border rounded-md p-2 backdrop-blur-sm bg-opacity-20 bg-red-900/10 border-red-700/30 animate-zoomIn" style={{animationDelay: `${index * 100}ms`}}>
+                    <div className="flex-grow text-sm break-all">{link}</div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0 hover:bg-red-700/20 hover:text-red-500 transition-colors" 
+                      onClick={() => removeLink(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="text-xs text-muted-foreground">
+                  {links.length} reference link{links.length !== 1 ? 's' : ''} added
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Search Section */}
         <div className="space-y-4">
           <div className="space-y-2">

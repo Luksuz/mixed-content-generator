@@ -510,7 +510,6 @@ const GeneratorsPage = () => {
                         <Cloud size={24} className="text-red-400" />
                         <CardTitle className="gradient-text">Google Drive</CardTitle>
                       </div>
-                      <CardDescription>Select files or folders from your Google Drive.</CardDescription> 
                     </CardHeader>
                     <CardContent>
                       <GoogleDriveComponent />

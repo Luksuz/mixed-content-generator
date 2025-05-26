@@ -355,9 +355,6 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
           <AudioWaveform className="h-5 w-5 text-red-400" />
           Generate Audio
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Convert your script text into speech using various AI providers and voices.
-        </CardDescription>
       </CardHeader>
       
       <CardContent className="space-y-6 relative z-10 pt-4 pb-6">

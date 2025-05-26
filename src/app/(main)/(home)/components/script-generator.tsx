@@ -579,9 +579,6 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
               <Sparkles className="h-5 w-5 text-red-400" />
               Script Generator
             </h2>
-            <p className="text-muted-foreground">
-              Create a script using AI. Fill in the details below.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

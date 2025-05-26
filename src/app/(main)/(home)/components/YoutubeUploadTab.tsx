@@ -12,9 +12,6 @@ const YoutubeUploadTab: React.FC = () => {
           <Youtube className="h-5 w-5 text-red-400" />
           Upload to YouTube
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Streamline your video uploading process directly to YouTube.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative z-10">
         <p className="text-muted-foreground">YouTube uploading integration coming soon.</p>

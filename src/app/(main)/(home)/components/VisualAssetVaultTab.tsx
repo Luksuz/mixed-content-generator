@@ -12,9 +12,6 @@ const VisualAssetVaultTab: React.FC = () => {
           <FolderArchive className="h-5 w-5 text-red-400" />
           Visual Asset Vault
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Manage and access all your generated visual assets (images, videos, thumbnails).
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative z-10">
         <p className="text-muted-foreground">Visual asset vault features are under construction.</p>

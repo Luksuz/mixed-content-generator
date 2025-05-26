@@ -12,9 +12,6 @@ const ContentRepackagerTab: React.FC = () => {
           <Recycle className="h-5 w-5 text-red-400" />
           Content Repackager
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Repurpose and adapt your existing content for different platforms and formats.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative z-10">
         <p className="text-muted-foreground">Content repackaging tools are currently in development.</p>

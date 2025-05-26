@@ -224,19 +224,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       <TabsContent value="image-generation" className="animate-fadeIn">
         <div className="w-full space-y-6 p-6 futuristic-card shadow-glow-red relative overflow-hidden">
           {/* Background blob effects */}
-          <div className="blob w-[300px] h-[300px] top-0 right-0 opacity-5 absolute"></div>
-          <div className="blob-red w-[200px] h-[200px] bottom-0 left-0 opacity-5 absolute"></div>
           
           <div className="space-y-2 relative z-10">
             <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-red-400" />
               AI Image Generator
             </h2>
-            <p className="text-muted-foreground">
-              {fullScript 
-                ? `View your generated script below and create custom prompts for image generation.`
-                : "Create custom prompts for image generation, or generate a script first."}
-            </p>
           </div>
 
           {/* Script Content Display */}
@@ -245,7 +238,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               <div className="flex justify-between items-center">
                 <Label className="glow-text">Generated Script Content</Label>
                 <div className="text-sm text-muted-foreground">
-                  {fullScript.split(/\s+/).length} words • Scroll to view full content
+                  Scroll to view full content
                 </div>
               </div>
               
