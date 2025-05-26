@@ -425,21 +425,9 @@ const GeneratorsPage = () => {
               className={`flex flex-col md:flex-row items-center justify-center md:justify-start space-y-1 md:space-y-0 md:space-x-3 p-2.5 rounded-xl transition-all duration-300 ${activeTab === "gdrive" ? "bg-red-600/30 text-red-300 shadow-glow-red" : "hover:bg-red-900/40"}`}
             >
               <Database size={20} className={activeTab === "gdrive" ? "text-red-400" : "text-muted-foreground"} />
-              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Text-to-video [beta]</span>
+              <span className={`text-xs md:text-sm font-medium ${activeTab === "gdrive" ? "text-red-300 glow-text-red" : "text-muted-foreground"}`}>Text-To-Video [Beta]</span>
             </button>
             
-            {/* Only show in development mode */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-auto pt-4 text-center">
-                <div className="text-xs text-muted-foreground mb-2">Development</div>
-                <div className="flex items-center justify-center gap-2 px-2">
-                  <span className="text-xs text-muted-foreground">Mock data:</span>
-                  <div className={`w-8 h-4 rounded-full ${USE_MOCK_DATA ? 'bg-green-500' : 'bg-gray-700'} relative`}>
-                    <div className={`absolute w-3 h-3 rounded-full bg-white top-0.5 transition-all ${USE_MOCK_DATA ? 'right-0.5' : 'left-0.5'}`}></div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -449,7 +437,7 @@ const GeneratorsPage = () => {
             <div className="mb-8">
               <h1 className="text-3xl font-bold mb-2 gradient-text flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-red-400" />
-                Welcome to AI YouTube video content generator
+                Welcome To AI YouTube Video Content Generator
               </h1>
             </div>
             
@@ -486,6 +474,7 @@ const GeneratorsPage = () => {
                   <ImageGenerator 
                     scriptPrompts={imagePrompts}
                     scriptSections={sharedScriptSections}
+                    fullScript={sharedFullScriptMarkdown}
                     numberOfImagesPerPrompt={defaultNumberOfImagesPerSectionPrompt}
                     isLoadingImages={isGeneratingImages}
                     imageSets={generatedImageSetsList}
@@ -509,6 +498,7 @@ const GeneratorsPage = () => {
                     onStartVideoCreation={handleStartVideoCreation}
                     thumbnailUrl={generatedThumbnailUrl}
                   />
+                  <VideoStatus jobs={videoJobs} isLoading={isLoadingJobs} />
                 </div>
               )}
               
@@ -559,8 +549,6 @@ const GeneratorsPage = () => {
                   <VisualAssetVaultTab />
                 </div>
               )}
-
-              <VideoStatus jobs={videoJobs} isLoading={isLoadingJobs} />
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import ScriptSectionCard from "../_components/script-section-card";
 import { ScriptSection } from "@/types";
-import { Download, Upload, RefreshCw, Sparkles, FileText, DownloadCloud } from "lucide-react";
+import { Download, Upload, RefreshCw, Sparkles, FileText, DownloadCloud, Edit, Trash2, Plus, PanelLeft, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
@@ -17,6 +17,13 @@ import {
   mockFullScriptCleaned,
   simulateScriptGenerationLoading,
 } from "@/lib/mock-data";
+
+interface OutlineSection {
+  id: string;
+  title: string;
+  description: string;
+  isEditing?: boolean;
+}
 
 // Add new prop for callback
 interface ScriptGeneratorProps {
@@ -40,10 +47,18 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const [inspirationalTranscript, setInspirationalTranscript] = useState("");
   const [forbiddenWords, setForbiddenWords] = useState("");
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
   const [scriptWordCount, setScriptWordCount] = useState(0);
   const [uploadedScript, setUploadedScript] = useState("");
   const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null);
   const [regeneratePrompt, setRegeneratePrompt] = useState("");
+  
+  // New state for outline functionality
+  const [outlineSections, setOutlineSections] = useState<OutlineSection[]>([]);
+  const [hasGeneratedOutline, setHasGeneratedOutline] = useState(false);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   
   // New state variables for advanced options
   const [videoFormat, setVideoFormat] = useState("Explainer");
@@ -70,6 +85,10 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     const savedCallToAction = localStorage.getItem('scriptGenerator.callToAction');
     const savedPointOfView = localStorage.getItem('scriptGenerator.pointOfView');
     
+    // Load outline state from localStorage
+    const savedOutlineSections = localStorage.getItem('scriptGenerator.outlineSections');
+    const savedHasGeneratedOutline = localStorage.getItem('scriptGenerator.hasGeneratedOutline');
+    
     if (savedTitle) setTitle(savedTitle);
     if (savedWordCount) setWordCount(parseInt(savedWordCount));
     if (savedTheme) setTheme(savedTheme);
@@ -82,8 +101,44 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     if (savedRetentionStructure) setRetentionStructure(savedRetentionStructure);
     if (savedCallToAction) setCallToAction(savedCallToAction);
     if (savedPointOfView) setPointOfView(savedPointOfView);
-  }, []);
-  
+    
+    // Restore outline state - but only if we don't already have outline sections
+    if (savedOutlineSections && outlineSections.length === 0) {
+      try {
+        const parsedSections = JSON.parse(savedOutlineSections);
+        if (parsedSections && parsedSections.length > 0) {
+          setOutlineSections(parsedSections);
+        }
+      } catch (error) {
+        console.error('Error parsing saved outline sections:', error);
+      }
+    }
+    
+    // Restore hasGeneratedOutline state - if we have a script or saved outline sections, we should show the outline
+    if (savedHasGeneratedOutline === 'true' || currentFullScript || (savedOutlineSections && JSON.parse(savedOutlineSections || '[]').length > 0)) {
+      setHasGeneratedOutline(true);
+    }
+  }, []); // Only run on mount
+
+  // Separate effect to handle when currentFullScript changes (when script is generated)
+  useEffect(() => {
+    // If we have a current full script but no outline sections, restore them from localStorage
+    if (currentFullScript && outlineSections.length === 0) {
+      const savedOutlineSections = localStorage.getItem('scriptGenerator.outlineSections');
+      if (savedOutlineSections) {
+        try {
+          const parsedSections = JSON.parse(savedOutlineSections);
+          if (parsedSections && parsedSections.length > 0) {
+            setOutlineSections(parsedSections);
+            setHasGeneratedOutline(true);
+          }
+        } catch (error) {
+          console.error('Error parsing saved outline sections:', error);
+        }
+      }
+    }
+  }, [currentFullScript, outlineSections.length]);
+
   // Save form values to localStorage when they change
   useEffect(() => {
     localStorage.setItem('scriptGenerator.title', title);
@@ -100,6 +155,15 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     localStorage.setItem('scriptGenerator.pointOfView', pointOfView);
   }, [title, wordCount, theme, additionalPrompt, forbiddenWords, videoFormat, toneOfVoice, targetEmotion, hookStyle, retentionStructure, callToAction, pointOfView]);
 
+  // Save outline state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('scriptGenerator.outlineSections', JSON.stringify(outlineSections));
+  }, [outlineSections]);
+
+  useEffect(() => {
+    localStorage.setItem('scriptGenerator.hasGeneratedOutline', hasGeneratedOutline.toString());
+  }, [hasGeneratedOutline]);
+
   // Calculate word count when full script changes
   const updateScriptWordCount = (script: string) => {
     if (!script) {
@@ -112,10 +176,103 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
     setScriptWordCount(words.length);
   };
 
-  // When full script changes, update word count
-  if (currentFullScript && scriptWordCount === 0) {
-    updateScriptWordCount(currentFullScript);
-  }
+  // Update word count when currentFullScript prop changes
+  useEffect(() => {
+    if (currentFullScript) {
+      updateScriptWordCount(currentFullScript);
+    } else {
+      setScriptWordCount(0);
+    }
+  }, [currentFullScript]);
+
+  // Mock outline data
+  const mockOutlineData: OutlineSection[] = [
+    { id: '1', title: 'Massive Population Decline', description: 'Detail the extent of population loss due to the Black Death, supported by historical statistics and accounts.' },
+    { id: '2', title: 'Economic Collapse', description: 'Explain the economic repercussions of the Black Death, including the breakdown of trade and loss of workforce.' },
+    { id: '3', title: 'Labor Shortages and Wage Increases', description: 'Describe how the scarcity of workers led to higher wages and shifts in labor dynamics.' },
+    { id: '4', title: 'Decline of the Feudal System', description: 'Analyze the weakening of feudal structures as a result of significant mortality among the peasantry.' },
+    { id: '5', title: 'Impact on the Church and Religious Practices', description: 'Examine how the Black Death affected religious institutions, including loss of clergy and shifts in faith practices.' },
+    { id: '6', title: 'Social Upheaval and Class Mobility', description: 'Explore changes in social hierarchies and increased social mobility following the plague.' },
+    { id: '7', title: 'Agricultural Disruption', description: 'Detail how farming practices and agricultural production were affected by widespread mortality and labor shortages.' },
+    { id: '8', title: 'Urban Decline and Rural Resurgence', description: 'Contrast the decline of urban centers with the revitalization of rural areas in the aftermath of the plague.' },
+    { id: '9', title: 'Advancements and Regression in Medical Knowledge', description: 'Discuss the impact of the Black Death on medical practices, including both advancements and setbacks.' },
+    { id: '10', title: 'Artistic and Cultural Shifts', description: 'Analyze how the Black Death influenced art, literature, and cultural expressions of the time.' },
+    { id: '11', title: 'Trade Routes and Economic Realignments', description: 'Examine changes in trade routes and economic power structures resulting from the plague.' },
+    { id: '12', title: 'Psychological Impact on Survivors', description: 'Explore the mental health and societal psyche changes induced by the widespread loss and fear.' },
+    { id: '13', title: 'Public Health Measures and Policies', description: 'Detail the public health responses and policies enacted during and after the Black Death.' },
+    { id: '14', title: 'Political Turmoil and Power Shifts', description: 'Analyze the political instability and shifts in power structures caused by the plague\'s devastation.' },
+    { id: '15', title: 'Changes in Warfare and Military Practices', description: 'Discuss how the Black Death influenced military strategies and the nature of warfare.' },
+    { id: '16', title: 'Long-term Demographic Effects', description: 'Assess the lasting demographic changes initiated by the Black Death, including population recovery and genetic impacts.' },
+  ];
+
+  const handleGenerateOutline = async () => {
+    try {
+      setIsGeneratingOutline(true);
+      await simulateScriptGenerationLoading(); // Simulate API call delay
+
+      setOutlineSections(mockOutlineData);
+      setHasGeneratedOutline(true);
+    } catch (error) {
+      console.error("Error generating outline:", error);
+    } finally {
+      setIsGeneratingOutline(false);
+    }
+  };
+
+  const handleRegenerateOutline = async () => {
+    try {
+      setIsGeneratingOutline(true);
+      await simulateScriptGenerationLoading(); // Simulate API call delay
+
+      // Shuffle the mock data to simulate regeneration
+      const shuffled = [...mockOutlineData].sort(() => Math.random() - 0.5);
+      setOutlineSections(shuffled);
+    } catch (error) {
+      console.error("Error regenerating outline:", error);
+    } finally {
+      setIsGeneratingOutline(false);
+    }
+  };
+
+  const handleEditSection = (section: OutlineSection) => {
+    setEditingSection(section.id);
+    setEditTitle(section.title);
+    setEditDescription(section.description);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingSection) return;
+    
+    setOutlineSections(prev => prev.map(section => 
+      section.id === editingSection 
+        ? { ...section, title: editTitle, description: editDescription }
+        : section
+    ));
+    
+    setEditingSection(null);
+    setEditTitle("");
+    setEditDescription("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSection(null);
+    setEditTitle("");
+    setEditDescription("");
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    setOutlineSections(prev => prev.filter(section => section.id !== sectionId));
+  };
+
+  const handleAddSection = () => {
+    const newSection: OutlineSection = {
+      id: Date.now().toString(),
+      title: "New Section",
+      description: "Add your section description here."
+    };
+    setOutlineSections(prev => [...prev, newSection]);
+    handleEditSection(newSection);
+  };
 
   const handleGenerateFullScript = async () => {
     try {
@@ -486,9 +643,22 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Button 
+              className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-blue-600/80 to-blue-700/80 border-0 shadow-glow-blue" 
+              onClick={handleGenerateOutline}
+              disabled={isGeneratingOutline || !title}
+            >
+              {isGeneratingOutline ? "Generating..." : (
+                <>
+                  <PanelLeft className="mr-2 h-4 w-4" />
+                  Generate Outline
+                </>
+              )}
+            </Button>
+            
+            <Button 
               className="flex-1 relative overflow-hidden shimmer bg-gradient-to-r from-red-600/80 to-red-700/80 border-0 shadow-glow-red" 
               onClick={handleGenerateFullScript}
-              disabled={isGeneratingScript || !title}
+              disabled={isGeneratingScript || !title || !hasGeneratedOutline}
             >
               {isGeneratingScript ? "Generating..." : (
                 <>
@@ -662,74 +832,276 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
 
       {/* Content Sections */}
       <div className="space-y-6 relative z-10">
-        {/* Full Script Section - Full Width */}
-        <div className="w-full space-y-6 animate-slideUp">
-          <div className="space-y-2 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
-                <FileText className="h-5 w-5 text-red-400" />
-                Full Script
-              </h2>
-              <p className="text-muted-foreground">
-                The complete script based on your settings.
-              </p>
-            </div>
-            {currentFullScript && (
-              <div className="text-sm font-medium glow-text-red bg-red-900/20 px-3 py-1 rounded-full border border-red-700/30">
-                Word Count: {scriptWordCount}
+        {/* Show loading animation during outline generation, regardless of hasGeneratedOutline */}
+        {isGeneratingOutline && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Outline Loading */}
+            <div className="space-y-4 animate-slideUp">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+                    <PanelLeft className="h-5 w-5 text-blue-400" />
+                    Script Outline
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Generating your content structure...
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-          
-          {!currentFullScript ? (
-            <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
-              <p className="text-muted-foreground glow-text-red">
-                {isGeneratingScript 
-                  ? "Generating your full script..." 
-                  : "Generate a script to see it here"}
-              </p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 backdrop-blur-md bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/30 rounded-lg p-4"
+              >
+                <div>
+                  <Label className="text-lg font-semibold flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-200 to-purple-400">
+                      Outline Generation in Progress
+                    </span>
+                  </Label>
+                  <p className="text-sm text-slate-300 ml-7">
+                    Neural rendering pipeline processing your content structure...
+                  </p>
+                </div>
+                <div className="border border-blue-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
+                  <div className="text-center space-y-3">
+                    <div className="w-16 h-16 mx-auto relative">
+                      <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
+                      <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                      <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-blue-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                    </div>
+                    <p className="text-blue-200 text-sm">
+                      Estimated completion: ~20 seconds
+                    </p>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="border rounded-lg p-4 futuristic-card shadow-glow-red futuristic-scrollbar overflow-y-auto max-h-[600px]">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <h1 className="text-xl font-bold mb-4 gradient-text">{title}</h1>
-                  <ReactMarkdown>{currentFullScript}</ReactMarkdown>
+
+            {/* Right Column - Placeholder during outline generation */}
+            <div className="space-y-4 animate-slideUp">
+              <div className="space-y-2 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-red-400" />
+                    Full Script
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Generate an outline first, then create your script.
+                  </p>
                 </div>
               </div>
               
-              {scriptSegments.length > 1 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium glow-text-red">Script Segments</h3>
-                  <p className="text-sm text-muted-foreground">
-                    The script is divided into segments of approximately 500 words each for easier editing.
+              <div className="h-[600px] flex items-center justify-center border rounded-lg futuristic-card">
+                <p className="text-muted-foreground glow-text-red text-center">
+                  Generate an outline first, then create your script
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show outline sections when generated and not currently generating */}
+        {hasGeneratedOutline && !isGeneratingOutline && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Outline Sections */}
+            <div className="space-y-4 animate-slideUp">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+                    <PanelLeft className="h-5 w-5 text-blue-400" />
+                    Script Outline
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Edit sections or regenerate the entire outline.
                   </p>
-                  
-                  <div className="space-y-4 futuristic-scrollbar overflow-y-auto max-h-[400px] pr-2">
-                    {scriptSegments.map((segment, index) => (
-                      <div key={index} className="border rounded-lg p-4 futuristic-card animate-zoomIn" style={{animationDelay: `${index * 100}ms`}}>
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className="font-medium glow-text-red">Segment {index + 1}</h4>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    onClick={handleAddSection}
+                    size="sm"
+                    className="futuristic-input hover:bg-blue-600/20 hover:shadow-glow-blue"
+                  >
+                    <Plus size={16} className="mr-2 text-blue-400" />
+                    Add Section
+                  </Button>
+                  <Button 
+                    onClick={handleRegenerateOutline}
+                    disabled={isGeneratingOutline}
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600/80 to-blue-700/80 border-0 shadow-glow-blue"
+                  >
+                    <RefreshCw size={16} className="mr-2" />
+                    REGENERATE
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 futuristic-scrollbar overflow-y-auto max-h-[600px] pr-2">
+                {outlineSections.map((section, index) => (
+                  <div 
+                    key={section.id} 
+                    className="border rounded-lg p-4 futuristic-card animate-zoomIn hover:shadow-glow-blue transition-all"
+                    style={{animationDelay: `${index * 50}ms`}}
+                  >
+                    {editingSection === section.id ? (
+                      <div className="space-y-3">
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="font-medium futuristic-input"
+                          placeholder="Section title"
+                        />
+                        <Textarea
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          className="text-sm futuristic-input"
+                          rows={3}
+                          placeholder="Section description"
+                        />
+                        <div className="flex justify-end gap-2">
                           <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDirectRegeneration(index, segment)}
-                            disabled={isGeneratingScript}
-                            className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleCancelEdit}
+                            className="futuristic-input"
                           >
-                            <RefreshCw size={14} className="mr-2 text-red-400" />
-                            Regenerate
+                            Cancel
+                          </Button>
+                          <Button 
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            className="bg-green-600/80 hover:bg-green-700/80"
+                          >
+                            Save
                           </Button>
                         </div>
-                        <div className="text-sm whitespace-pre-wrap">{segment}</div>
                       </div>
-                    ))}
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium glow-text-blue text-lg">{section.title}</h3>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditSection(section)}
+                              className="p-1 h-8 w-8 hover:bg-blue-600/20"
+                            >
+                              <Edit size={14} className="text-blue-400" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteSection(section.id)}
+                              className="p-1 h-8 w-8 hover:bg-red-600/20"
+                            >
+                              <Trash2 size={14} className="text-red-400" />
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{section.description}</p>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Column - Full Script */}
+            <div className="space-y-4 animate-slideUp">
+              <div className="space-y-2 flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold gradient-text flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-red-400" />
+                    Full Script
+                  </h2>
+                  <p className="text-muted-foreground">
+                    The complete script based on your outline.
+                  </p>
+                </div>
+                {currentFullScript && (
+                  <div className="text-sm font-medium glow-text-red bg-red-900/20 px-3 py-1 rounded-full border border-red-700/30">
+                    Word Count: {wordCount}
+                  </div>
+                )}
+              </div>
+              
+              {isGeneratingScript ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="space-y-4 backdrop-blur-md bg-gradient-to-r from-red-900/20 to-pink-900/20 border border-red-700/30 rounded-lg p-4"
+                >
+                  <div>
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      <Loader2 className="h-5 w-5 text-red-400 animate-spin" />
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-200 to-pink-400">
+                        Script Generation in Progress
+                      </span>
+                    </Label>
+                    <p className="text-sm text-slate-300 ml-7">
+                      Advanced language models crafting your narrative content...
+                    </p>
+                  </div>
+                  <div className="border border-red-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <div className="w-16 h-16 mx-auto relative">
+                        <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-red-500 animate-spin"></div>
+                        <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-pink-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                        <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-red-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                      </div>
+                      <p className="text-red-200 text-sm">
+                        Estimated completion: ~30 seconds
+                      </p>
+                      <div className="w-full bg-gray-700 rounded-full h-2">
+                        <div className="bg-gradient-to-r from-red-500 to-pink-500 h-2 rounded-full animate-pulse" style={{ width: '45%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : !currentFullScript ? (
+                <div className="h-[600px] flex items-center justify-center border rounded-lg futuristic-card">
+                  <p className="text-muted-foreground glow-text-red text-center">
+                    {hasGeneratedOutline 
+                      ? "Click 'Generate Script' to create your full script"
+                      : "Generate an outline first, then create your script"}
+                  </p>
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 futuristic-card shadow-glow-red futuristic-scrollbar overflow-y-auto max-h-[600px]">
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <h1 className="text-xl font-bold mb-4 gradient-text">{title}</h1>
+                    <ReactMarkdown>{currentFullScript}</ReactMarkdown>
                   </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Show form prompts if no outline generated yet and not currently generating */}
+        {!hasGeneratedOutline && !isGeneratingOutline && (
+          <div className="h-[300px] flex items-center justify-center border rounded-lg futuristic-card">
+            <div className="text-center space-y-4">
+              <PanelLeft className="h-12 w-12 text-blue-400 mx-auto" />
+              <div>
+                <h3 className="text-lg font-medium glow-text-blue">Start with an Outline</h3>
+                <p className="text-muted-foreground mt-2">
+                  Generate an outline first to organize your script into structured sections.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

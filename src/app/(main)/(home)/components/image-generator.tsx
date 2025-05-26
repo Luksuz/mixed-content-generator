@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface ImageGeneratorProps {
   scriptPrompts?: string[]; 
   scriptSections?: ScriptSection[];
+  fullScript?: string; // Add full script prop
   numberOfImagesPerPrompt?: number; 
   
   isLoadingImages: boolean;
@@ -38,6 +39,7 @@ interface ImageGeneratorProps {
 const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   scriptPrompts,
   scriptSections = [],
+  fullScript = "", // Add full script prop
   numberOfImagesPerPrompt = 1, // Default if not specified by parent
   isLoadingImages,
   imageSets,
@@ -49,13 +51,12 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   onImageSetsGenerated
 }) => {
   const [manualPrompt, setManualPrompt] = useState(""); // Was 'prompt'
-  const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("openai"); // Was 'style'
+  const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("flux"); // Was 'style'
   
   // New state for tracking selected images for regeneration
   const [selectedImages, setSelectedImages] = useState<{ setIndex: number; imageIndex: number; prompt: string }[]>([]);
   
-  // New state for image options
-  const [selectedSections, setSelectedSections] = useState<number[]>([]);
+  // New state for image options - remove selectedSections
   const [customPrompts, setCustomPrompts] = useState<string[]>([]);
   const [newCustomPrompt, setNewCustomPrompt] = useState("");
   const [numImagesPerPrompt, setNumImagesPerPrompt] = useState(numberOfImagesPerPrompt);
@@ -73,15 +74,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   
   // Get selected prompts
   const getSelectedPrompts = () => {
-    const sectionPrompts = selectedSections
-      .map(index => scriptSections[index]?.image_generation_prompt)
-      .filter(Boolean) as string[];
-    
-    return [...sectionPrompts, ...customPrompts];
+    return [...customPrompts];
   }
 
   const handleGenerateClick = async () => {
-    // Get all selected prompts (from sections and custom)
+    // Get all selected prompts (only custom prompts now)
     const selectedPrompts = getSelectedPrompts();
     const promptsToUse = selectedPrompts.length > 0 ? selectedPrompts.join('|||||') : manualPrompt.trim();
 
@@ -94,14 +91,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     // Always call the parent's generation function
     onStartGenerationRequest(selectedProvider, numImagesPerPrompt, promptsToUse);
   };
-  
-  const toggleSectionSelection = (index: number) => {
-    setSelectedSections(prev => 
-      prev.includes(index) 
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
-    );
-  }
   
   const addCustomPrompt = () => {
     if (!newCustomPrompt.trim()) return;
@@ -196,10 +185,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   };
   
   // Determine if we have prompts available
-  const promptsAvailable = selectedSections.length > 0 || customPrompts.length > 0 || manualPrompt.trim() !== '';
+  const promptsAvailable = customPrompts.length > 0 || manualPrompt.trim() !== '';
   
   // Count of prompts to be used
-  const selectedPromptCount = selectedSections.length + customPrompts.length;
+  const selectedPromptCount = customPrompts.length;
   const displayPromptCount = selectedPromptCount > 0 ? selectedPromptCount : (manualPrompt.trim() !== '' ? 1 : 0);
 
   const handleImageSetsGenerated = (imageSets: GeneratedImageSet[]) => {
@@ -244,62 +233,58 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               AI Image Generator
             </h2>
             <p className="text-muted-foreground">
-              {scriptSections && scriptSections.length > 0 
-                ? `Select script sections to use their image prompts, or create custom prompts.`
-                : "Describe the image you want to see, or generate a script first."}
+              {fullScript 
+                ? `View your generated script below and create custom prompts for image generation.`
+                : "Create custom prompts for image generation, or generate a script first."}
             </p>
           </div>
 
-          {/* Script Section Selection */}
-          {scriptSections && scriptSections.length > 0 ? (
+          {/* Script Content Display */}
+          {fullScript && fullScript.trim() ? (
             <div className="space-y-4 relative z-10">
               <div className="flex justify-between items-center">
-                <Label className="glow-text">Script Sections</Label>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setSelectedSections([])}
-                    disabled={selectedSections.length === 0}
-                    className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
-                  >
-                    Clear
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setSelectedSections(Array.from({length: scriptSections.length}, (_, i) => i))}
-                    disabled={selectedSections.length === scriptSections.length}
-                    className="futuristic-input hover:bg-red-600/20 hover:shadow-glow-red"
-                  >
-                    Select All
-                  </Button>
+                <Label className="glow-text">Generated Script Content</Label>
+                <div className="text-sm text-muted-foreground">
+                  {fullScript.split(/\s+/).length} words • Scroll to view full content
                 </div>
               </div>
               
-              <ScrollArea className="h-52 border rounded-md p-4 backdrop-blur-sm bg-black/20 border-red-700/30 futuristic-scrollbar">
-                <div className="space-y-2">
-                  {scriptSections.map((section, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 hover:bg-red-600/10 rounded-md transition-colors duration-200">
-                      <Checkbox 
-                        id={`section-${index}`} 
-                        checked={selectedSections.includes(index)}
-                        onCheckedChange={() => toggleSectionSelection(index)}
-                        className="border-red-500/50 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
-                      />
-                      <Label 
-                        htmlFor={`section-${index}`} 
-                        className="flex-grow cursor-pointer text-sm"
-                      >
-                        <div className="font-medium">{section.title}</div>
-                        <div className="text-muted-foreground truncate">{section.image_generation_prompt}</div>
-                      </Label>
-                    </div>
-                  ))}
+              <div className="border rounded-md backdrop-blur-sm bg-black/20 border-red-700/30 futuristic-card">
+                <div className="p-4 border-b border-red-700/20">
+                  <h3 className="font-medium text-red-300 mb-2">Script Preview</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Use this content as reference for creating custom image prompts below
+                  </p>
                 </div>
-              </ScrollArea>
+                <ScrollArea className="h-52 p-4 futuristic-scrollbar">
+                  <div className="prose prose-sm max-w-none dark:prose-invert text-white">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {fullScript}
+                    </div>
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="space-y-4 relative z-10">
+              <div className="flex justify-between items-center">
+                <Label className="glow-text">Script Content</Label>
+                <div className="text-sm text-muted-foreground">
+                  No script generated yet
+                </div>
+              </div>
+              
+              <div className="border rounded-md backdrop-blur-sm bg-black/20 border-red-700/30 futuristic-card">
+                <div className="p-8 text-center">
+                  <div className="text-muted-foreground">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">No Script Available</p>
+                    <p className="text-sm mt-2">Generate a script first to see content here, or create custom prompts below.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Custom Prompts */}
           <div className="space-y-4 relative z-10">
@@ -345,8 +330,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             )}
           </div>
 
-          {/* Manual Prompt - show only if no sections or custom prompts */}
-          {selectedSections.length === 0 && customPrompts.length === 0 && (
+          {/* Manual Prompt - show only if no custom prompts */}
+          {customPrompts.length === 0 && (
             <div className="space-y-2 relative z-10">
               <Label htmlFor="manual-prompt" className="glow-text">Image Description</Label>
               <Input
@@ -371,9 +356,9 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 onChange={(e) => setSelectedProvider(e.target.value as ImageProvider)}
                 disabled={currentlyGenerating}
               >
-                <option value="openai">OpenAI (DALL-E 3)</option>
-                <option value="minimax">Minimax</option>
                 <option value="flux">Flux</option>
+                <option value="minimax">Minimax</option>
+                <option value="openai">OpenAI (DALL-E 3)</option>
                 <option value="gemini">Gemini</option>
                 <option value="ideogram">Ideogram</option>
                 <option value="sd">Stable Diffusion</option>
@@ -386,7 +371,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               <Slider
                 id="images-per-prompt"
                 min={1}
-                max={5}
+                max={1000}
                 step={1}
                 value={[numImagesPerPrompt]}
                 onValueChange={(value: number[]) => setNumImagesPerPrompt(value[0])}
@@ -426,7 +411,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    <span>{`Generate ${numImagesPerPrompt > 1 ? numImagesPerPrompt : ''} Image${numImagesPerPrompt > 1 ? 's' : ''} (${displayPromptCount} prompt${displayPromptCount > 1 ? 's' : ''})`}</span>
+                    <span>Generate Images</span>
                   </>
                 )}
               </Button>
@@ -434,18 +419,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           </div>
           
           {/* Summary Badge */}
-          {(selectedSections.length > 0 || customPrompts.length > 0) && (
+          {customPrompts.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2 relative z-10">
-              {selectedSections.length > 0 && (
-                <Badge variant="secondary" className="bg-red-600/20 border-red-700/30 shadow-glow-red">
-                  {selectedSections.length} script section{selectedSections.length !== 1 ? 's' : ''}
-                </Badge>
-              )}
-              {customPrompts.length > 0 && (
-                <Badge variant="secondary" className="bg-red-700/20 border-red-800/30 shadow-glow-red">
-                  {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
-                </Badge>
-              )}
+              <Badge variant="secondary" className="bg-red-700/20 border-red-800/30 shadow-glow-red">
+                {customPrompts.length} custom prompt{customPrompts.length !== 1 ? 's' : ''}
+              </Badge>
               <Badge variant="secondary" className="bg-red-800/20 border-red-900/30 shadow-glow-red">
                 {numImagesPerPrompt} image{numImagesPerPrompt !== 1 ? 's' : ''} per prompt
               </Badge>
@@ -532,7 +510,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           {imageSets.map((set, setIndex) => (
             <div key={setIndex} className="p-4 futuristic-card shadow-glow-red animate-slideUp" style={{animationDelay: `${setIndex * 150}ms`}}>
               <h3 className="text-lg font-semibold mb-1 glow-text-red">Prompt:</h3>
-              <p className="text-sm text-muted-foreground mb-3 italic truncate">"{set.originalPrompt}"</p>
+              <p className="text-sm text-muted-foreground mb-3 italic truncate">&quot;{set.originalPrompt}&quot;</p>
               {(set.imageUrls.length === 0 && set.imageData.length === 0) && !currentlyGenerating && (
                   <p className="text-sm text-red-500">No images were generated for this prompt. Check errors or server logs.</p>
               )}

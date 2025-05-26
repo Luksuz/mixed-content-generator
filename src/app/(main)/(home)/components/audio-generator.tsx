@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,36 +10,73 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { motion } from "framer-motion";
 import {
   mockAudioUrl,
-  mockSubtitlesUrl, // Add if you plan to use mock subtitles
+  mockSubtitlesUrl,
   simulateAudioGenerationLoading,
 } from "@/lib/mock-data";
 
-// Placeholder types (as the original files are missing)
-type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio"; // Removed "google-tts"
+type AudioProvider = "elevenlabs" | "minimax-tts" | "openai" | "fish-audio";
+type TtsProvider = "openai" | "minimax" | "fish-audio" | "elevenlabs";
+type MinimaxModel = "speech-02-hd" | "speech-02-turbo" | "speech-01-hd" | "speech-01-turbo";
 
 interface VoiceInfo {
   value: string;
   label: string;
 }
 
-// Placeholder voice data (examples, replace with actual data if needed)
-// Removed googleTTSVoices array
+interface VoiceOption {
+  id: string;
+  name: string;
+  provider: TtsProvider;
+}
+
+// Voice options for each provider (using VoiceInfo format for UI)
 const elevenLabsVoices: VoiceInfo[] = [
-  { value: "Rachel", label: "ElevenLabs Rachel" },
-  { value: "Adam", label: "ElevenLabs Adam" },
-];
-const minimaxTTSVoices: VoiceInfo[] = [
-  { value: "Wise_Woman", label: "Minimax Wise Woman" },
-  { value: "Friendly_Person", label: "Minimax Friendly Person" },
+  { value: "Rachel", label: "ElevenLabs Rachel (Female)" },
+  { value: "Bella", label: "ElevenLabs Bella (Female)" },
+  { value: "Elli", label: "ElevenLabs Elli (Female)" },
+  { value: "Adam", label: "ElevenLabs Adam (Male)" },
 ];
 
+const minimaxTTSVoices: VoiceInfo[] = [
+  { value: "Wise_Woman", label: "Minimax Wise Woman (Female)" },
+  { value: "Female_Narrator", label: "Minimax Female Narrator (Female)" },
+  { value: "Friendly_Person", label: "Minimax Friendly Person (Male)" },
+];
+
+const openAIVoices: VoiceInfo[] = [
+  { value: "nova", label: "OpenAI Nova (Female)" },
+  { value: "shimmer", label: "OpenAI Shimmer (Female)" },
+  { value: "alloy", label: "OpenAI Alloy (Neutral)" },
+  { value: "echo", label: "OpenAI Echo (Male)" },
+  { value: "fable", label: "OpenAI Fable (Male)" },
+  { value: "onyx", label: "OpenAI Onyx (Male)" },
+];
+
+const fishAudioVoices: VoiceInfo[] = [
+  { value: "female_narrator_1", label: "Fish Audio Female Narrator 1 (Female)" },
+  { value: "female_narrator_2", label: "Fish Audio Female Narrator 2 (Female)" },
+  { value: "male_narrator_1", label: "Fish Audio Male Narrator 1 (Male)" },
+];
+
+// Default ElevenLabs voices for API fallback (using VoiceOption format)
+const defaultElevenLabsVoices: VoiceOption[] = [
+  { id: "UgBBYS2sOqTuMpoF3BR0", name: "Mark - Natural Conversations", provider: "elevenlabs" },
+  { id: "Rachel", name: "Rachel (Female)", provider: "elevenlabs" },
+  { id: "Bella", name: "Bella (Female)", provider: "elevenlabs" },
+  { id: "Elli", name: "Elli (Female)", provider: "elevenlabs" },
+];
+
+// Fish Audio voice options for API
+const fishAudioVoiceOptions: VoiceOption[] = [
+  { id: "54e3a85ac9594ffa83264b8a494b901b", name: "Spongebob", provider: "fish-audio" },
+  { id: "802e3bc2b27e49c2995d23ef70e6ac89", name: "Energetic Male", provider: "fish-audio" },
+];
 
 interface GenerateAudioRequestBody {
   text: string;
   provider: AudioProvider;
   voice: string;
   userId?: string;
-  // Add other fields based on actual API (e.g., model for minimax)
   model?: string; 
   fishAudioVoiceId?: string;
   fishAudioModel?: string;
@@ -53,18 +90,6 @@ interface GenerateAudioResponse {
   details?: string;
 }
 
-
-type TtsProvider = "openai" | "minimax" | "fish-audio" | "elevenlabs"; // This was already present
-
-type MinimaxModel = "speech-02-hd" | "speech-02-turbo" | "speech-01-hd" | "speech-01-turbo";
-
-interface VoiceOption { // This was already present
-  id: string;
-  name: string;
-  provider: TtsProvider;
-}
-
-// Define props for AudioGenerator
 interface AudioGeneratorProps {
   initialText?: string;
   generatedAudioUrl: string | null;
@@ -89,7 +114,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   selectedUserId,
 }) => {
   const [textToConvert, setTextToConvert] = useState<string>(initialText || "");
-  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("elevenlabs");
+  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("minimax-tts");
   const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
@@ -99,21 +124,37 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [subtitleGenerationError, setSubtitleGenerationError] = useState<string | null>(null);
   const [generatedSubtitlesUrlLocal, setGeneratedSubtitlesUrlLocal] = useState<string | null>(null);
 
-  // These states seem to be from a previous version or a mix of logic, will retain for now and see if they are used by the new structure.
-  const [provider, setProviderLegacy] = useState<TtsProvider>("openai"); // Renamed to avoid conflict
-  const [voiceLegacy, setVoiceLegacy] = useState("alloy"); // Renamed
+  // Legacy states for API compatibility
+  const [provider, setProviderLegacy] = useState<TtsProvider>("openai");
+  const [voiceLegacy, setVoiceLegacy] = useState("alloy");
   const [minimaxModel, setMinimaxModel] = useState<MinimaxModel>("speech-02-hd");
   const [fishAudioVoiceId, setFishAudioVoiceId] = useState("54e3a85ac9594ffa83264b8a494b901b");
   const [fishAudioModel, setFishAudioModel] = useState("speech-1.6");
   const [elevenLabsVoiceId, setElevenLabsVoiceId] = useState("UgBBYS2sOqTuMpoF3BR0");
   const [elevenLabsModelId, setElevenLabsModelId] = useState("eleven_multilingual_v2");
-  const [elevenLabsVoicesList, setElevenLabsVoicesList] = useState<VoiceOption[]>([]);
-  const [isLoadingElevenLabsVoices, setIsLoadingElevenLabsVoices] = useState(false);
   const [audioDuration, setAudioDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
 
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get voice options based on selected provider
+  const getVoiceOptions = useCallback((): VoiceInfo[] => {
+    switch (selectedProvider) {
+      case "elevenlabs":
+        return elevenLabsVoices;
+      case "minimax-tts":
+        return minimaxTTSVoices;
+      case "openai":
+         return openAIVoices;
+      case "fish-audio":
+          return fishAudioVoices;
+      default:
+        const _exhaustiveCheck: never = selectedProvider;
+        console.warn("Unhandled provider in getVoiceOptions: ", selectedProvider)
+        return [];
+    }
+  }, [selectedProvider]);
 
   useEffect(() => {
     if (initialText) {
@@ -126,7 +167,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
       audioInstanceRef.current.src = generatedAudioUrl;
     } else if (!generatedAudioUrl && audioInstanceRef.current) {
       audioInstanceRef.current.pause();
-      audioInstanceRef.current.src = ""; // Clear src
+      audioInstanceRef.current.src = "";
       setIsPlaying(false);
       setCurrentTime(0);
       setAudioDuration(0);
@@ -135,11 +176,10 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   
   // Effect for initializing and cleaning up the audio element
   useEffect(() => {
-    // Create the Audio object instance only once
     if (!audioInstanceRef.current) {
       audioInstanceRef.current = new Audio();
     }
-    const audioInstance = audioInstanceRef.current; // Work with the instance
+    const audioInstance = audioInstanceRef.current;
 
     const handleEnded = () => {
       setIsPlaying(false);
@@ -154,17 +194,15 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
         setAudioDuration(audioInstanceRef.current.duration);
       }
     };
-    const handleTimeUpdate = () => { // For progress bar, if needed
+    const handleTimeUpdate = () => {
         if(audioInstanceRef.current) {
             setCurrentTime(audioInstanceRef.current.currentTime);
         }
     };
 
-
     audioInstance.addEventListener("ended", handleEnded);
     audioInstance.addEventListener("loadedmetadata", handleLoadedMetadata);
     audioInstance.addEventListener("timeupdate", handleTimeUpdate);
-
 
     return () => {
       if (progressIntervalRef.current) {
@@ -174,10 +212,14 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
       audioInstance.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audioInstance.removeEventListener("timeupdate", handleTimeUpdate);
       audioInstance.pause();
-      audioInstance.src = ""; // Clean up src
+      audioInstance.src = "";
     };
   }, []);
 
+  useEffect(() => {
+    const voices = getVoiceOptions();
+    setSelectedVoice(voices[0]?.value || "");
+  }, [getVoiceOptions]);
 
   const handleGenerateAudio = async () => {
     if (!textToConvert.trim()) {
@@ -278,103 +320,6 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     }
   };
 
-  const getVoiceOptions = (): VoiceInfo[] => { // Explicit return type
-    switch (selectedProvider) {
-      case "elevenlabs":
-        return elevenLabsVoicesList.length > 0 
-            ? elevenLabsVoicesList.map((v: VoiceOption): VoiceInfo => ({ value: v.id, label: v.name })) 
-            : defaultElevenLabsVoices.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
-      case "minimax-tts":
-        return minimaxTTSVoices;
-      case "openai":
-         return voiceOptions.openai.map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
-      case "fish-audio":
-          return voiceOptions["fish-audio"].map((v: VoiceOption): VoiceInfo => ({value: v.id, label: v.name}));
-      default:
-        // Ensure a valid AudioProvider string is checked, or handle unexpected values
-        const _exhaustiveCheck: never = selectedProvider;
-        console.warn("Unhandled provider in getVoiceOptions: ", selectedProvider)
-        return [];
-    }
-  };
-
-  useEffect(() => {
-    const voices = getVoiceOptions();
-    setSelectedVoice(voices[0]?.value || "");
-  }, [selectedProvider, elevenLabsVoicesList]); // Added elevenLabsVoicesList as dependency
-
-  // MiniMax model options
-  const minimaxModels: { id: MinimaxModel; name: string }[] = [
-    { id: "speech-02-hd", name: "Speech 02 HD" },
-    { id: "speech-02-turbo", name: "Speech 02 Turbo" },
-    { id: "speech-01-hd", name: "Speech 01 HD" },
-    { id: "speech-01-turbo", name: "Speech 01 Turbo" }
-  ];
-
-  // Fish Audio model options
-  const fishAudioModels: { id: string; name: string }[] = [
-    { id: "speech-1.6", name: "Speech 1.6" },
-    { id: "speech-1.5", name: "Speech 1.5" },
-  ];
-
-  // Fish Audio voice options
-  const fishAudioVoices: VoiceOption[] = [
-    { id: "54e3a85ac9594ffa83264b8a494b901b", name: "Spongebob", provider: "fish-audio" },
-    { id: "802e3bc2b27e49c2995d23ef70e6ac89", name: "Energetic Male", provider: "fish-audio" },
-    // ... (other fish audio voices)
-  ];
-
-  // ElevenLabs voice options (fallback)
-  const defaultElevenLabsVoices: VoiceOption[] = [
-    { id: "UgBBYS2sOqTuMpoF3BR0", name: "Mark - Natural Conversations", provider: "elevenlabs" },
-    // ... (other default elevenlabs voices)
-  ];
-
-  useEffect(() => {
-    if (provider !== 'elevenlabs') { // This uses the old `provider` state (renamed to providerLegacy)
-      setElevenLabsVoicesList([]);
-    }
-  }, [provider]); // Should be `selectedProvider` or this logic needs update for `selectedProvider`
-
-  const voiceOptions: Record<TtsProvider, VoiceOption[]> = { // This structure seems from the old logic
-    openai: [ { id: "alloy", name: "Alloy", provider: "openai" }, /* ... other voices ... */ ],
-    minimax: [ { id: "Wise_Woman", name: "Wise Woman", provider: "minimax" }, /* ... */ ],
-    "fish-audio": fishAudioVoices,
-    "elevenlabs": elevenLabsVoicesList.length > 0 ? elevenLabsVoicesList : defaultElevenLabsVoices,
-  };
-  
-  useEffect(() => {
-    const fetchElevenLabsVoices = async () => {
-      // Logic for fetching elevenlabs voices if selectedProvider is elevenlabs
-      // This should use `selectedProvider` not `provider` (legacy state)
-      if (selectedProvider === "elevenlabs" && elevenLabsVoicesList.length === 0) { 
-        setIsLoadingElevenLabsVoices(true);
-        try {
-          // Assuming /api/list-elevenlabs-voices exists and returns { voices: [{id: string, name: string}, ...] }
-          const response = await fetch("/api/list-elevenlabs-voices"); 
-          if (!response.ok) throw new Error("Failed to fetch ElevenLabs voices");
-          const data = await response.json();
-          const fetchedVoices: VoiceOption[] = data.voices.map((v: any) => ({ id: v.id, name: v.name, provider: "elevenlabs" }));
-          setElevenLabsVoicesList(fetchedVoices);
-          if (fetchedVoices.length > 0 && !fetchedVoices.some(v => v.id === elevenLabsVoiceId)) {
-            setElevenLabsVoiceId(fetchedVoices[0].id); // Update if current selection is invalid
-          }
-        } catch (error: any) {
-          console.error("Error fetching ElevenLabs voices:", error);
-          setAudioGenerationError(`Failed to load ElevenLabs voices: ${error.message}. Using defaults.`);
-          setElevenLabsVoicesList(defaultElevenLabsVoices); // Fallback to default
-           if (defaultElevenLabsVoices.length > 0 && !defaultElevenLabsVoices.some(v => v.id === elevenLabsVoiceId)) {
-            setElevenLabsVoiceId(defaultElevenLabsVoices[0].id);
-          }
-        } finally {
-          setIsLoadingElevenLabsVoices(false);
-        }
-      }
-    };
-    fetchElevenLabsVoices();
-  }, [selectedProvider, elevenLabsVoiceId]); // elevenLabsVoiceId might cause loop if set inside
-
-
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -438,9 +383,10 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
               onChange={(e) => setSelectedProvider(e.target.value as AudioProvider)}
               disabled={isGeneratingAudio || isGeneratingSubtitles}
               className="w-full p-2 rounded futuristic-input"
-            >
+            >              
+            
+            <option value="minimax-tts">Minimax TTS</option>
               <option value="elevenlabs">ElevenLabs</option>
-              <option value="minimax-tts">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
             </select>
@@ -473,6 +419,43 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
           )}
           {isGeneratingAudio ? "Generating Audio..." : isGeneratingSubtitles ? "Generating Subtitles..." : "Generate Audio & Subtitles"}
         </Button>
+
+        {/* Audio Generation Loading Animation */}
+        {isGeneratingAudio && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="space-y-4 backdrop-blur-md bg-gradient-to-r from-red-900/20 to-pink-900/20 border border-red-700/30 rounded-lg p-4"
+          >
+            <div>
+              <Label className="text-lg font-semibold flex items-center gap-2">
+                <Loader2 className="h-5 w-5 text-red-400 animate-spin" />
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-200 to-pink-400">
+                  Audio Generation in Progress
+                </span>
+              </Label>
+              <p className="text-sm text-slate-300 ml-7">
+                Neural voice synthesis processing your text content...
+              </p>
+            </div>
+            <div className="border border-red-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 mx-auto relative">
+                  <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-red-500 animate-spin"></div>
+                  <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-pink-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                  <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-red-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                </div>
+                <p className="text-red-200 text-sm">
+                  Estimated completion: ~15 seconds
+                </p>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-red-500 to-pink-500 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {audioGenerationError && (
           <div className="flex items-center text-red-500 bg-red-500/10 px-3 py-2 rounded-md border border-red-500/20">

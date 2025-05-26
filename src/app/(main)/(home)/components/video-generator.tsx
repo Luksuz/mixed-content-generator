@@ -211,12 +211,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                   >
                     Your browser does not support the video tag.
                   </video>
-                  <div className="mt-3 p-2 bg-black/40 rounded text-xs text-green-200 font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="text-green-400">Video URL:</span>
-                      <span className="break-all">{generatedVideoUrl}</span>
-                    </div>
-                  </div>
                 </div>
                 <div className="flex gap-3">
                   <Button
@@ -307,8 +301,28 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                 <Label className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-red-300 to-red-400">
                   Visual Assets {selectedImageUrls.length > 0 && `(${selectedImageUrls.length}/${MAX_SELECTED_IMAGES})`}
                 </Label>
-                <div className="text-xs bg-white/10 rounded-full px-3 py-1 font-medium text-red-200">
-                  {selectedImageUrls.length} / {MAX_SELECTED_IMAGES} selected
+                <div className="flex items-center gap-2">
+                  <div className="text-xs bg-white/10 rounded-full px-3 py-1 font-medium text-red-200">
+                    {selectedImageUrls.length} / {MAX_SELECTED_IMAGES} selected
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedImageUrls([])}
+                    disabled={selectedImageUrls.length === 0 || isGeneratingVideo}
+                    className="bg-red-900/30 hover:bg-red-800/40 border-red-700/30 text-red-200"
+                  >
+                    Clear All
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setSelectedImageUrls([...allImageUrls])}
+                    disabled={selectedImageUrls.length === allImageUrls.length || isGeneratingVideo || allImageUrls.length === 0}
+                    className="bg-red-900/30 hover:bg-red-800/40 border-red-700/30 text-red-200"
+                  >
+                    Select All
+                  </Button>
                 </div>
               </div>
               
