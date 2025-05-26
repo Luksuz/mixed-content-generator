@@ -4,6 +4,7 @@ export interface CreateVideoRequestBody {
     subtitlesUrl?: string; // URL to SRT file for video subtitles
     userId?: string;
     thumbnailUrl?: string; // Custom thumbnail URL generated with Leonardo.ai
+    quality?: 'low' | 'high'; // Video quality setting
   }
   
   export interface CreateVideoResponse {

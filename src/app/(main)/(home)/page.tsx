@@ -335,7 +335,7 @@ const GeneratorsPage = () => {
     }
   };
 
-  const handleStartVideoCreation = async (selectedImageUrls: string[]) => {
+  const handleStartVideoCreation = async (selectedImageUrls: string[], quality: 'low' | 'high' = 'low') => {
     if (!actualUserId) { // Check if a user is selected
       setVideoGenerationError("Please select a user before creating a video.");
       return;
@@ -365,9 +365,10 @@ const GeneratorsPage = () => {
         subtitlesUrl: generatedSubtitlesUrl || undefined,
         userId: actualUserId,
         thumbnailUrl: generatedThumbnailUrl || undefined, // Include custom thumbnail if available
+        quality: quality, // Include quality setting
       };
       
-      console.log(`Creating video with ${selectedImageUrls.length} images, audio, ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}, and ${generatedThumbnailUrl ? 'custom thumbnail' : 'default thumbnail'}.`);
+      console.log(`Creating video with ${selectedImageUrls.length} images, audio, ${generatedSubtitlesUrl ? 'subtitles' : 'no subtitles'}, ${generatedThumbnailUrl ? 'custom thumbnail' : 'default thumbnail'}, and ${quality} quality.`);
       
       const response = await fetch('/api/create-video', {
         method: 'POST',

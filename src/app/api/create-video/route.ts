@@ -29,8 +29,16 @@ async function isUrlAccessible(url: string): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateVideoRequestBody = await request.json();
-    const { imageUrls, audioUrl, subtitlesUrl, userId, thumbnailUrl } = body;
+    const { imageUrls, audioUrl, subtitlesUrl, userId, thumbnailUrl, quality = 'low' } = body;
     
+    console.log("📥 Received video creation request:");
+    console.log(`- Images: ${imageUrls?.length || 0}`);
+    console.log(`- Audio: ${audioUrl ? 'YES' : 'NO'}`);
+    console.log(`- Subtitles: ${subtitlesUrl ? 'YES' : 'NO'}`);
+    console.log(`- User ID: ${userId || 'Not provided'}`);
+    console.log(`- Thumbnail: ${thumbnailUrl ? 'YES' : 'NO'}`);
+    console.log(`- Quality: ${quality}`);
+
     console.log(`📋 Subtitle configuration:
       - Subtitles URL provided: ${subtitlesUrl ? 'YES' : 'NO'}
       - Subtitles URL: ${subtitlesUrl || 'None'}
@@ -230,16 +238,22 @@ export async function POST(request: NextRequest) {
       tracks: tracks
     };
 
+    const outputConfig: any = {
+      format: "mp4",
+      size: {
+        width: 1280,
+        height: 720
+      }
+    };
+
+    // Only add quality parameter if it's 'low'
+    if (quality === 'low') {
+      outputConfig.quality = "low";
+    }
+
     const shotstackPayload = {
       timeline: timeline,
-      output: {
-        format: "mp4",
-        size: {
-          width: 1280,
-          height: 720
-        },
-        quality: "low"
-      },
+      output: outputConfig,
       callback: process.env.SHOTSTACK_CALLBACK_URL
     };
 

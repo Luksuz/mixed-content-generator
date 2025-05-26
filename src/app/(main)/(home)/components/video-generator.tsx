@@ -13,7 +13,7 @@ interface VideoGeneratorProps {
   isGeneratingVideo: boolean;
   generatedVideoUrl: string | null;
   videoGenerationError: string | null;
-  onStartVideoCreation: (selectedImageUrls: string[]) => Promise<void>;
+  onStartVideoCreation: (selectedImageUrls: string[], quality: 'low' | 'high') => Promise<void>;
   thumbnailUrl?: string | null;
 }
 
@@ -28,6 +28,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
+  const [videoQuality, setVideoQuality] = useState<'low' | 'high'>('low');
 
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
@@ -51,7 +52,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
     }
     setLocalError(null);
     setShowSuccessMessage(false);
-    await onStartVideoCreation(selectedImageUrls);
+    await onStartVideoCreation(selectedImageUrls, videoQuality);
     setShowSuccessMessage(true);
   };
 
@@ -133,6 +134,39 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </AlertDescription>
             </Alert>
           )}
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-lg font-semibold">Video Quality</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Choose the quality for your video. High quality takes longer to process but provides better resolution.
+              </p>
+              <div className="flex gap-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="quality"
+                    value="low"
+                    checked={videoQuality === 'low'}
+                    onChange={(e) => setVideoQuality(e.target.value as 'low' | 'high')}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">Low Quality (Faster)</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="quality"
+                    value="high"
+                    checked={videoQuality === 'high'}
+                    onChange={(e) => setVideoQuality(e.target.value as 'low' | 'high')}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">High Quality (Slower)</span>
+                </label>
+              </div>
+            </div>
+          </div>
 
           <div>
             <Label className="text-lg font-semibold">Select Images</Label>
