@@ -237,7 +237,8 @@ export async function POST(request: NextRequest) {
         size: {
           width: 1280,
           height: 720
-        }
+        },
+        quality: "low"
       },
       callback: process.env.SHOTSTACK_CALLBACK_URL
     };

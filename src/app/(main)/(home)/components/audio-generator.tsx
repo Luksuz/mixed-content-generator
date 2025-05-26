@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Volume2, Download, Play, Pause, Loader2, AlertCircle, CheckCircle, MessageSquare } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 // Placeholder types (as the original files are missing)
 type AudioProvider = "elevenlabs" | "minimax" | "openai" | "fish-audio" | "google-tts"; // Added "google-tts"
@@ -91,11 +92,30 @@ interface AudioGeneratorProps {
   isGeneratingAudio: boolean;
   audioGenerationError: string | null;
   onAudioGenerated: (url: string | null) => void;
-  // Uncomment subtitle handling from props
   onSubtitlesGenerated: (url: string | null) => void;
   setIsGeneratingAudio: (isGenerating: boolean) => void;
   setAudioGenerationError: (error: string | null) => void;
   selectedUserId?: string;
+  batchProcessingState: {
+    chunks: string[];
+    chunkResults: ChunkResult[];
+    currentBatch: number;
+    totalBatches: number;
+    processingProgress: number;
+    isProcessingBatches: boolean;
+    isConcatenating: boolean;
+    isGeneratingSubtitles: boolean;
+  };
+  setBatchProcessingState: (state: {
+    chunks: string[];
+    chunkResults: ChunkResult[];
+    currentBatch: number;
+    totalBatches: number;
+    processingProgress: number;
+    isProcessingBatches: boolean;
+    isConcatenating: boolean;
+    isGeneratingSubtitles: boolean;
+  }) => void;
 }
 
 // Add language options interface
@@ -155,17 +175,37 @@ interface GoogleTtsVoice {
   naturalSampleRateHertz: number;
 }
 
+// Constants for chunking
+const AUDIO_CHUNK_MAX_LENGTH = 2800;
+const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 1000;
+
+// Batch processing constants
+const DEFAULT_BATCH_SIZE = 4;
+const ELEVENLABS_BATCH_SIZE = 4;
+const FISH_AUDIO_BATCH_SIZE = 3;
+const DEFAULT_BATCH_DELAY = 60 * 1100; // 66 seconds
+const ELEVENLABS_BATCH_DELAY = 60 * 1100; // 1 minute
+const FISH_AUDIO_BATCH_DELAY = 60 * 1000; // 60 seconds
+
+interface ChunkResult {
+  chunkIndex: number;
+  chunkUrl?: string;
+  error?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+}
+
 const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   initialText,
   generatedAudioUrl,
   isGeneratingAudio,
   audioGenerationError,
   onAudioGenerated,
-  // Uncomment subtitle props in component definition
   onSubtitlesGenerated,
   setIsGeneratingAudio,
   setAudioGenerationError,
   selectedUserId,
+  batchProcessingState,
+  setBatchProcessingState,
 }) => {
   const [textToConvert, setTextToConvert] = useState<string>(initialText || "");
   const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("minimax");
@@ -173,11 +213,15 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
-  // Uncomment subtitle state but keep it hidden from the UI
-  // State for subtitle generation
-  const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState<boolean>(false);
-  const [subtitleGenerationError, setSubtitleGenerationError] = useState<string | null>(null);
-  const [generatedSubtitlesUrlLocal, setGeneratedSubtitlesUrlLocal] = useState<string | null>(null);
+  // Batch processing state
+  const [chunks, setChunks] = useState<string[]>(batchProcessingState.chunks);
+  const [chunkResults, setChunkResults] = useState<ChunkResult[]>(batchProcessingState.chunkResults);
+  const [currentBatch, setCurrentBatch] = useState<number>(batchProcessingState.currentBatch);
+  const [totalBatches, setTotalBatches] = useState<number>(batchProcessingState.totalBatches);
+  const [processingProgress, setProcessingProgress] = useState<number>(batchProcessingState.processingProgress);
+  const [isProcessingBatches, setIsProcessingBatches] = useState<boolean>(batchProcessingState.isProcessingBatches);
+  const [isConcatenating, setIsConcatenating] = useState<boolean>(batchProcessingState.isConcatenating);
+  const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState<boolean>(batchProcessingState.isGeneratingSubtitles);
 
   // These states seem to be from a previous version or a mix of logic, will retain for now and see if they are used by the new structure.
   const [provider, setProviderLegacy] = useState<TtsProvider>("openai"); // Renamed to avoid conflict
@@ -201,6 +245,32 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   const [selectedGoogleTtsVoiceName, setSelectedGoogleTtsVoiceName] = useState<string>("");
 
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local state with lifted state on mount and when lifted state changes
+  useEffect(() => {
+    setChunks(batchProcessingState.chunks);
+    setChunkResults(batchProcessingState.chunkResults);
+    setCurrentBatch(batchProcessingState.currentBatch);
+    setTotalBatches(batchProcessingState.totalBatches);
+    setProcessingProgress(batchProcessingState.processingProgress);
+    setIsProcessingBatches(batchProcessingState.isProcessingBatches);
+    setIsConcatenating(batchProcessingState.isConcatenating);
+    setIsGeneratingSubtitles(batchProcessingState.isGeneratingSubtitles);
+  }, [batchProcessingState]);
+
+  // Update lifted state whenever local state changes
+  useEffect(() => {
+    setBatchProcessingState({
+      chunks,
+      chunkResults,
+      currentBatch,
+      totalBatches,
+      processingProgress,
+      isProcessingBatches,
+      isConcatenating,
+      isGeneratingSubtitles,
+    });
+  }, [chunks, chunkResults, currentBatch, totalBatches, processingProgress, isProcessingBatches, isConcatenating, isGeneratingSubtitles, setBatchProcessingState]);
 
   useEffect(() => {
     if (initialText) {
@@ -265,107 +335,200 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
     };
   }, []);
 
-
-  const handleGenerateAudio = async () => {
-    if (!textToConvert.trim()) {
-      setAudioGenerationError("Please enter some text to convert.");
-      return;
+  // Chunking function
+  const chunkText = (text: string, maxLength: number = AUDIO_CHUNK_MAX_LENGTH): string[] => {
+    if (!text || text.length <= maxLength) {
+      return [text];
     }
-    setIsGeneratingAudio(true);
-    setAudioGenerationError(null);
-    onAudioGenerated(null);
-    
-    // Uncomment subtitle reset
-    onSubtitlesGenerated(null);
-    setGeneratedSubtitlesUrlLocal(null);
-    setSubtitleGenerationError(null);
 
-    try {
-      const requestBody: GenerateAudioRequestBody = {
-        text: textToConvert,
-        provider: selectedProvider,
-        voice: selectedVoice,
-        userId: selectedUserId || 'unknown_user',
-      };
-      // Add provider-specific fields if necessary
-      if (selectedProvider === 'minimax') {
-        requestBody.model = minimaxModel; // Example, ensure minimaxModel state is set
-      } else if (selectedProvider === 'fish-audio') {
-        requestBody.fishAudioVoiceId = fishAudioVoiceId;
-        requestBody.fishAudioModel = fishAudioModel;
-      } else if (selectedProvider === 'elevenlabs') {
-        requestBody.elevenLabsVoiceId = elevenLabsVoiceId;
-        requestBody.elevenLabsModelId = elevenLabsModelId;
-        // Only add languageCode if using Flash model
-        if (elevenLabsModelId === "eleven_flash_v2_5") {
-          requestBody.languageCode = selectedLanguageCode;
-        }
-      } else if (selectedProvider === 'google-tts') {
-        if (!selectedGoogleTtsVoiceName) {
-          setAudioGenerationError("Please select a Google TTS voice.");
-          setIsGeneratingAudio(false);
-          return;
-        }
-        requestBody.googleTtsVoiceName = selectedGoogleTtsVoiceName;
-        // The selectedGoogleTtsLanguage is the language code for Google TTS
-        requestBody.googleTtsLanguageCode = selectedGoogleTtsLanguage; 
-        // requestBody.googleTtsSsmlGender = selectedVoice.split('-')[2]; // Example if gender is in voice name format
-        // Remove the generic `voice` and `languageCode` for Google TTS as it uses specific ones
-        delete requestBody.voice;
-        delete requestBody.languageCode; 
+    const chunks: string[] = [];
+    let currentPosition = 0;
+
+    while (currentPosition < text.length) {
+      let chunkEnd = currentPosition + maxLength;
+      if (chunkEnd >= text.length) {
+        chunks.push(text.substring(currentPosition));
+        break;
       }
 
+      let splitPosition = -1;
+      const sentenceEndChars = /[.?!]\s+|[\n\r]+/g;
+      let match;
+      let lastMatchPosition = -1;
+      
+      const searchSubstr = text.substring(currentPosition, chunkEnd);
+      while((match = sentenceEndChars.exec(searchSubstr)) !== null) {
+          lastMatchPosition = currentPosition + match.index + match[0].length;
+      }
 
-      const response = await fetch("/api/generate-audio", {
+      if (lastMatchPosition > currentPosition && lastMatchPosition <= chunkEnd) {
+          splitPosition = lastMatchPosition;
+      } else {
+          let spacePosition = text.lastIndexOf(' ', chunkEnd);
+          if (spacePosition > currentPosition) {
+              splitPosition = spacePosition + 1;
+          } else {
+              splitPosition = chunkEnd;
+          }
+      }
+      chunks.push(text.substring(currentPosition, splitPosition).trim());
+      currentPosition = splitPosition;
+    }
+    return chunks.filter(chunk => chunk.length > 0);
+  };
+
+  // Generate a single audio chunk
+  const generateSingleChunk = async (
+    textChunk: string,
+    chunkIndex: number,
+    provider: string,
+    providerArgs: any
+  ): Promise<string> => {
+    const requestBody = {
+      textChunk,
+      chunkIndex,
+      provider,
+      userId: selectedUserId || 'unknown_user',
+      ...providerArgs
+    };
+
+    const response = await fetch("/api/generate-audio-chunk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
-      const data: GenerateAudioResponse = await response.json();
+    const data = await response.json();
 
       if (!response.ok || data.error) {
-        throw new Error(data.details || data.error || "Failed to generate audio");
+      throw new Error(data.error || "Failed to generate audio chunk");
+    }
+
+    return data.chunkUrl;
+  };
+
+  // Process chunks in batches
+  const processBatches = async (
+    textChunks: string[],
+    provider: string,
+    providerArgs: any
+  ): Promise<ChunkResult[]> => {
+    const batchSize = provider === "elevenlabs" ? ELEVENLABS_BATCH_SIZE : 
+                     provider === "fish-audio" ? FISH_AUDIO_BATCH_SIZE : 
+                     DEFAULT_BATCH_SIZE;
+    
+    const batchDelay = provider === "elevenlabs" ? ELEVENLABS_BATCH_DELAY : 
+                       provider === "fish-audio" ? FISH_AUDIO_BATCH_DELAY : 
+                       DEFAULT_BATCH_DELAY;
+
+    const results: ChunkResult[] = textChunks.map((_, index) => ({
+      chunkIndex: index,
+      status: 'pending' as const
+    }));
+
+    setChunkResults(results);
+    setTotalBatches(Math.ceil(textChunks.length / batchSize));
+    setCurrentBatch(0);
+
+    for (let batchStart = 0; batchStart < textChunks.length; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, textChunks.length);
+      const currentBatchNumber = Math.floor(batchStart / batchSize) + 1;
+      
+      setCurrentBatch(currentBatchNumber);
+      console.log(`🔄 Processing batch ${currentBatchNumber}/${Math.ceil(textChunks.length / batchSize)}`);
+
+      // Mark chunks in current batch as processing
+      setChunkResults(prev => prev.map((result, index) => 
+        index >= batchStart && index < batchEnd 
+          ? { ...result, status: 'processing' as const }
+          : result
+      ));
+
+      // Process current batch
+      const batchPromises = [];
+      for (let i = batchStart; i < batchEnd; i++) {
+        batchPromises.push(
+          generateSingleChunk(textChunks[i], i, provider, providerArgs)
+            .then(chunkUrl => {
+              // Update both state and results array
+              results[i] = { ...results[i], chunkUrl, status: 'completed' as const };
+              setChunkResults(prev => prev.map((result, index) => 
+                index === i 
+                  ? { ...result, chunkUrl, status: 'completed' as const }
+                  : result
+              ));
+              return { chunkIndex: i, chunkUrl, status: 'completed' as const };
+            })
+            .catch(error => {
+              console.error(`❌ Chunk ${i} failed:`, error);
+              // Update both state and results array
+              results[i] = { ...results[i], error: error.message, status: 'failed' as const };
+              setChunkResults(prev => prev.map((result, index) => 
+                index === i 
+                  ? { ...result, error: error.message, status: 'failed' as const }
+                  : result
+              ));
+              return { chunkIndex: i, error: error.message, status: 'failed' as const };
+            })
+        );
       }
 
-      if (data.audioUrl) {
-        onAudioGenerated(data.audioUrl); // This will trigger the useEffect to set src
-        
-        // Process the subtitles URL if it exists in the response
-        if (data.subtitlesUrl) {
-          console.log("Received subtitles URL from audio generation:", data.subtitlesUrl);
-          setGeneratedSubtitlesUrlLocal(data.subtitlesUrl);
-          onSubtitlesGenerated(data.subtitlesUrl);
-        }
-      } else {
-        throw new Error("Audio URL not found in response");
+      await Promise.allSettled(batchPromises);
+
+      // Update progress based on the actual results array
+      const completedChunks = results.filter(r => r.status === 'completed').length;
+      setProcessingProgress((completedChunks / textChunks.length) * 100);
+
+      // Wait between batches (except for the last batch)
+      if (batchEnd < textChunks.length) {
+        console.log(`⏱️ Waiting ${batchDelay / 1000}s before next batch...`);
+        await new Promise(resolve => setTimeout(resolve, batchDelay));
       }
-    } catch (err: any) {
-      setAudioGenerationError(err.message || "An unexpected error occurred.");
-      onAudioGenerated(null);
+    }
+
+    return results;
+  };
+
+  // Concatenate audio chunks
+  const concatenateChunks = async (chunkUrls: string[]): Promise<string> => {
+    setIsConcatenating(true);
+    
+    try {
+      const response = await fetch("/api/concatenate-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chunkUrls,
+          provider: selectedProvider,
+          voice: selectedProvider === "google-tts" ? selectedGoogleTtsVoiceName : selectedVoice,
+          userId: selectedUserId || 'unknown_user'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || "Failed to concatenate audio chunks");
+      }
+
+      return data.audioUrl;
     } finally {
-      setIsGeneratingAudio(false);
+      setIsConcatenating(false);
     }
   };
 
-  // Uncomment the subtitle generation function, but we'll make it hidden
-  // This function should still exist for handling manual subtitle generation if needed
-  const handleGenerateSubtitles = async (audioUrl: string) => {
-    if (!selectedUserId) {
-        console.warn("Cannot generate subtitles without a selected user ID.");
-        setSubtitleGenerationError("User ID is missing, cannot generate subtitles.");
-        return;
-    }
+  // Generate subtitles from final audio
+  const generateSubtitlesFromFinalAudio = async (audioUrl: string): Promise<string | null> => {
     setIsGeneratingSubtitles(true);
-    setSubtitleGenerationError(null);
-    setGeneratedSubtitlesUrlLocal(null);
 
     try {
-        console.log("Requesting subtitle generation for audio:", audioUrl);
-        const response = await fetch("/api/generate-subtitles", {
+      const response = await fetch("/api/generate-subtitles-from-audio", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audioUrl, userId: selectedUserId }),
+        body: JSON.stringify({
+          audioUrl,
+          userId: selectedUserId || 'unknown_user'
+        }),
         });
 
         const data = await response.json();
@@ -374,52 +537,123 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
             throw new Error(data.error || "Failed to generate subtitles");
         }
 
-        if (data.subtitlesUrl) {
-            console.log("Subtitles generated:", data.subtitlesUrl);
-            setGeneratedSubtitlesUrlLocal(data.subtitlesUrl);
-            onSubtitlesGenerated(data.subtitlesUrl);
-        } else {
-            throw new Error("Subtitles URL not found in response");
-        }
-    } catch (err: any) {
-        console.error("Subtitle generation error:", err);
-        setSubtitleGenerationError(err.message || "An unexpected error occurred during subtitle generation.");
-        onSubtitlesGenerated(null);
+      return data.subtitlesUrl;
+    } catch (error: any) {
+      console.error("⚠️ Subtitle generation failed:", error);
+      return null; // Don't fail the whole process if subtitles fail
     } finally {
         setIsGeneratingSubtitles(false);
     }
   };
 
-  const handlePlayPause = () => {
-    if (audioInstanceRef.current && audioInstanceRef.current.src && audioInstanceRef.current.readyState >= 2) { // readyState >= 2 (HAVE_CURRENT_DATA) means it can play
-      if (isPlaying) {
-        audioInstanceRef.current.pause();
-         if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      } else {
-        audioInstanceRef.current.play().catch(e => console.error("Error playing audio:", e));
-         if (progressIntervalRef.current) clearInterval(progressIntervalRef.current); // Clear any existing
-        progressIntervalRef.current = setInterval(() => {
-            if(audioInstanceRef.current) {
-                setCurrentTime(audioInstanceRef.current.currentTime);
-            }
-        }, 100);
+  // Main audio generation handler
+  const handleGenerateAudio = async () => {
+    if (!textToConvert.trim()) {
+      setAudioGenerationError("Please enter some text to convert.");
+      return;
+    }
+
+    setIsGeneratingAudio(true);
+    setIsProcessingBatches(true);
+    setAudioGenerationError(null);
+    onAudioGenerated(null);
+    onSubtitlesGenerated(null);
+    setProcessingProgress(0);
+
+    try {
+      // Determine chunk size based on provider
+      const currentChunkMaxLength = selectedProvider === "elevenlabs" ? 
+        ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH : AUDIO_CHUNK_MAX_LENGTH;
+      
+      const textChunks = chunkText(textToConvert, currentChunkMaxLength);
+      setChunks(textChunks);
+      
+      console.log(`📝 Text split into ${textChunks.length} chunks (max length: ${currentChunkMaxLength})`);
+
+      if (textChunks.length === 0) {
+        throw new Error("No text content to process after chunking.");
       }
-      setIsPlaying(!isPlaying);
-    } else {
-        console.warn("Audio ref not available or no src for play/pause");
+
+      // Prepare provider-specific arguments
+      const providerArgs: any = {
+        voice: selectedVoice,
+        model: minimaxModel,
+        fishAudioVoiceId,
+        fishAudioModel,
+        elevenLabsVoiceId,
+        elevenLabsModelId,
+        languageCode: selectedLanguageCode,
+      };
+
+      if (selectedProvider === "google-tts") {
+        providerArgs.googleTtsVoiceName = selectedGoogleTtsVoiceName;
+        providerArgs.googleTtsLanguageCode = selectedGoogleTtsLanguage;
+      }
+
+      // Process all chunks in batches
+      const results = await processBatches(textChunks, selectedProvider, providerArgs);
+      setIsProcessingBatches(false);
+
+      // Filter successful chunks
+      const successfulResults = results.filter(r => r.status === 'completed' && r.chunkUrl);
+      const failedCount = results.length - successfulResults.length;
+
+      if (successfulResults.length === 0) {
+        throw new Error("All audio chunks failed to generate.");
+      }
+
+      if (failedCount > 0) {
+        console.warn(`⚠️ ${failedCount}/${results.length} chunks failed. Proceeding with ${successfulResults.length} successful chunks.`);
+      }
+
+      // Extract chunk URLs in correct order
+      const chunkUrls = successfulResults
+        .sort((a, b) => a.chunkIndex - b.chunkIndex)
+        .map(r => r.chunkUrl!);
+
+      console.log(`🔗 Concatenating ${chunkUrls.length} audio chunks...`);
+
+      // Concatenate chunks
+      const finalAudioUrl = await concatenateChunks(chunkUrls);
+      onAudioGenerated(finalAudioUrl);
+
+      // Generate subtitles from final audio
+      console.log("🔤 Starting subtitle generation...");
+      const subtitlesUrl = await generateSubtitlesFromFinalAudio(finalAudioUrl);
+      if (subtitlesUrl) {
+        onSubtitlesGenerated(subtitlesUrl);
+        console.log("✅ Subtitles generated successfully");
+      }
+
+      console.log("✅ Audio generation completed successfully!");
+
+    } catch (error: any) {
+      console.error("❌ Error in audio generation:", error);
+      setAudioGenerationError(error.message || "An unexpected error occurred.");
+      onAudioGenerated(null);
+      onSubtitlesGenerated(null);
+    } finally {
+      setIsGeneratingAudio(false);
+      setIsProcessingBatches(false);
+      setIsConcatenating(false);
+      setIsGeneratingSubtitles(false);
     }
   };
 
-  const handleDownloadAudio = () => {
-    if (generatedAudioUrl) {
-      const link = document.createElement('a');
-      link.href = generatedAudioUrl;
-      link.download = `generated_audio_${selectedProvider}.mp3`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const getProcessingStatusText = () => {
+    if (isProcessingBatches) {
+      return `Processing batch ${currentBatch}/${totalBatches} (${Math.round(processingProgress)}%)`;
     }
+    if (isConcatenating) {
+      return "Concatenating audio chunks...";
+    }
+    if (isGeneratingSubtitles) {
+      return "Generating subtitles...";
+    }
+    return "Generate Audio";
   };
+
+  const isAnyProcessing = isGeneratingAudio || isProcessingBatches || isConcatenating || isGeneratingSubtitles;
 
   const getVoiceOptions = (): VoiceInfo[] => { // Explicit return type
     switch (selectedProvider) {
@@ -481,12 +715,23 @@ const fishAudioVoices: VoiceOption[] = [
     }
   }, [provider]); // Should be `selectedProvider` or this logic needs update for `selectedProvider`
 
-  const voiceOptions: Record<TtsProvider, VoiceOption[]> = { // This structure seems from the old logic
-    openai: [ { id: "alloy", name: "Alloy", provider: "openai" }, /* ... other voices ... */ ],
-    minimax: [ { id: "Wise_Woman", name: "Wise Woman", provider: "minimax" }, /* ... */ ],
+  const voiceOptions: Record<TtsProvider, VoiceOption[]> = {
+    openai: [
+      { id: "alloy", name: "Alloy", provider: "openai" },
+      { id: "echo", name: "Echo", provider: "openai" },
+      { id: "fable", name: "Fable", provider: "openai" },
+      { id: "onyx", name: "Onyx", provider: "openai" },
+      { id: "nova", name: "Nova", provider: "openai" },
+      { id: "shimmer", name: "Shimmer", provider: "openai" }
+    ],
+    minimax: [
+      { id: "English_radiant_girl", name: "Radiant Girl", provider: "minimax" },
+      { id: "English_captivating_female1", name: "Captivating Female", provider: "minimax" },
+      { id: "English_Steady_Female_1", name: "Steady Women", provider: "minimax" }
+    ],
     "fish-audio": fishAudioVoices,
     "elevenlabs": elevenLabsVoicesList.length > 0 ? elevenLabsVoicesList : defaultElevenLabsVoices,
-    "google-tts": [], // Added to satisfy the type, dropdown will be hidden
+    "google-tts": [],
   };
   
   useEffect(() => {
@@ -566,6 +811,37 @@ const fishAudioVoices: VoiceOption[] = [
     return options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>);
   };
 
+  const handlePlayPause = () => {
+    if (audioInstanceRef.current && audioInstanceRef.current.src && audioInstanceRef.current.readyState >= 2) {
+      if (isPlaying) {
+        audioInstanceRef.current.pause();
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      } else {
+        audioInstanceRef.current.play().catch(e => console.error("Error playing audio:", e));
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = setInterval(() => {
+          if(audioInstanceRef.current) {
+            setCurrentTime(audioInstanceRef.current.currentTime);
+          }
+        }, 100);
+      }
+      setIsPlaying(!isPlaying);
+    } else {
+      console.warn("Audio ref not available or no src for play/pause");
+    }
+  };
+
+  const handleDownloadAudio = () => {
+    if (generatedAudioUrl) {
+      const link = document.createElement('a');
+      link.href = generatedAudioUrl;
+      link.download = `generated_audio_${selectedProvider}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -583,8 +859,7 @@ const fishAudioVoices: VoiceOption[] = [
             value={textToConvert}
             onChange={(e) => setTextToConvert(e.target.value)}
             rows={6}
-            // Update to include subtitle generation state
-            disabled={isGeneratingAudio || isGeneratingSubtitles}
+            disabled={isAnyProcessing}
           />
         </div>
 
@@ -595,16 +870,14 @@ const fishAudioVoices: VoiceOption[] = [
               id="audio-provider-select"
               value={selectedProvider}
               onChange={(e) => setSelectedProvider(e.target.value as AudioProvider)}
-              // Update to include subtitle generation state
-              disabled={isGeneratingAudio || isGeneratingSubtitles}
+              disabled={isAnyProcessing}
               className="w-full p-2 border rounded mt-1 bg-background text-foreground"
             >
-              {/*<option value="elevenlabs">ElevenLabs</option>*/}
               <option value="minimax">Minimax TTS</option>
               <option value="openai">OpenAI</option>
               <option value="fish-audio">Fish Audio</option>
+              <option value="elevenlabs">ElevenLabs</option>
               <option value="google-tts">Google Cloud TTS</option>
-              {/* Add other providers as needed */}
             </select>
           </div>
           <div className="space-y-2">
@@ -613,8 +886,7 @@ const fishAudioVoices: VoiceOption[] = [
               id="voice-selection-select"
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              // Update to include subtitle generation state
-              disabled={isGeneratingAudio || isGeneratingSubtitles || getVoiceOptions().length === 0 || selectedProvider === 'google-tts'}
+              disabled={isAnyProcessing || getVoiceOptions().length === 0 || selectedProvider === 'google-tts'}
               className={`w-full p-2 border rounded mt-1 bg-background text-foreground ${selectedProvider === 'google-tts' ? 'hidden' : ''}`}
             >
               {getVoiceOptions().map((voice: VoiceInfo) => (
@@ -623,7 +895,6 @@ const fishAudioVoices: VoiceOption[] = [
             </select>
           </div>
           
-          {/* Add these new UI elements */}
           {selectedProvider === "elevenlabs" && (
             <>
               <div className="space-y-2">
@@ -632,7 +903,7 @@ const fishAudioVoices: VoiceOption[] = [
                   id="elevenlabs-model-select"
                   value={elevenLabsModelId}
                   onChange={(e) => setElevenLabsModelId(e.target.value)}
-                  disabled={isGeneratingAudio || isGeneratingSubtitles}
+                  disabled={isAnyProcessing}
                   className="w-full p-2 border rounded mt-1 bg-background text-foreground"
                 >
                   {elevenLabsModelOptions.map((model) => (
@@ -648,7 +919,7 @@ const fishAudioVoices: VoiceOption[] = [
                     id="language-selection-select"
                     value={selectedLanguageCode}
                     onChange={(e) => setSelectedLanguageCode(e.target.value)}
-                    disabled={isGeneratingAudio || isGeneratingSubtitles}
+                    disabled={isAnyProcessing}
                     className="w-full p-2 border rounded mt-1 bg-background text-foreground"
                   >
                     {elevenlabsLanguageOptions.map((lang) => (
@@ -660,7 +931,6 @@ const fishAudioVoices: VoiceOption[] = [
             </>
           )}
 
-          {/* Google TTS Specific UI */}
           {selectedProvider === 'google-tts' && (
             <>
               <div className="space-y-2">
@@ -670,15 +940,14 @@ const fishAudioVoices: VoiceOption[] = [
                   value={selectedGoogleTtsLanguage}
                   onChange={(e) => {
                     setSelectedGoogleTtsLanguage(e.target.value);
-                    // Reset voice selection when language changes
                     const firstVoiceInNewLanguage = googleTtsVoicesList.find(v => v.languageCodes.includes(e.target.value));
                     if (firstVoiceInNewLanguage) {
                       setSelectedGoogleTtsVoiceName(firstVoiceInNewLanguage.name);
                     } else {
-                        setSelectedGoogleTtsVoiceName(""); // Or select the first overall if no match
+                        setSelectedGoogleTtsVoiceName("");
                     }
                   }}
-                  disabled={isGeneratingAudio || isGeneratingSubtitles || isLoadingGoogleTtsVoices}
+                  disabled={isAnyProcessing || isLoadingGoogleTtsVoices}
                   className="w-full p-2 border rounded mt-1 bg-background text-foreground"
                 >
                   {isLoadingGoogleTtsVoices ? (
@@ -697,7 +966,7 @@ const fishAudioVoices: VoiceOption[] = [
                   id="google-voice-select"
                   value={selectedGoogleTtsVoiceName}
                   onChange={(e) => setSelectedGoogleTtsVoiceName(e.target.value)}
-                  disabled={isGeneratingAudio || isGeneratingSubtitles || isLoadingGoogleTtsVoices || googleTtsVoicesList.filter(v => v.languageCodes.includes(selectedGoogleTtsLanguage)).length === 0}
+                  disabled={isAnyProcessing || isLoadingGoogleTtsVoices || googleTtsVoicesList.filter(v => v.languageCodes.includes(selectedGoogleTtsLanguage)).length === 0}
                   className="w-full p-2 border rounded mt-1 bg-background text-foreground"
                 >
                   {isLoadingGoogleTtsVoices ? (
@@ -735,27 +1004,60 @@ const fishAudioVoices: VoiceOption[] = [
           )}
         </div>
 
+        {/* Progress indicator */}
+        {isAnyProcessing && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>{getProcessingStatusText()}</span>
+              {isProcessingBatches && (
+                <span>{Math.round(processingProgress)}%</span>
+              )}
+            </div>
+            {isProcessingBatches && (
+              <Progress value={processingProgress} className="w-full" />
+            )}
+            {(isConcatenating || isGeneratingSubtitles) && (
+              <Progress value={100} className="w-full animate-pulse" />
+            )}
+          </div>
+        )}
+
+        {/* Chunk status display */}
+        {chunks.length > 0 && chunkResults.length > 0 && (
+          <div className="space-y-2">
+            <Label>Chunk Processing Status ({chunks.length} chunks)</Label>
+            <div className="grid grid-cols-10 gap-1">
+              {chunkResults.map((result, index) => (
+                <div
+                  key={index}
+                  className={`w-6 h-6 rounded text-xs flex items-center justify-center text-white font-bold ${
+                    result.status === 'completed' ? 'bg-green-500' :
+                    result.status === 'processing' ? 'bg-blue-500 animate-pulse' :
+                    result.status === 'failed' ? 'bg-red-500' :
+                    'bg-gray-300'
+                  }`}
+                  title={`Chunk ${index + 1}: ${result.status}${result.error ? ` - ${result.error}` : ''}`}
+                >
+                  {index + 1}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Button 
           onClick={handleGenerateAudio} 
-          // Update to include subtitle generation state
-          disabled={isGeneratingAudio || isGeneratingSubtitles || !textToConvert.trim()}
+          disabled={isAnyProcessing || !textToConvert.trim()}
           className="w-full"
         >
-          {(isGeneratingAudio || isGeneratingSubtitles) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isGeneratingAudio ? "Generating Audio..." : isGeneratingSubtitles ? "Processing..." : "Generate Audio"}
+          {isAnyProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {getProcessingStatusText()}
         </Button>
 
         {audioGenerationError && (
           <div className="flex items-center text-red-500">
             <AlertCircle className="mr-2 h-4 w-4" />
             <p>Audio Error: {audioGenerationError}</p>
-          </div>
-        )}
-        
-        {subtitleGenerationError && (
-          <div className="flex items-center text-red-500">
-            <AlertCircle className="mr-2 h-4 w-4" />
-            <p>Subtitle Error: {subtitleGenerationError}</p>
           </div>
         )}
       </CardContent>
@@ -787,25 +1089,6 @@ const fishAudioVoices: VoiceOption[] = [
                 </div>
             </div>
           )}
-
-          {/* Subtitles UI remains commented out - we don't want to show this in the UI */}
-          {/*
-          {isGeneratingSubtitles && (
-            <div className="flex items-center text-muted-foreground w-full">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              <p>Generating subtitles, please wait...</p>
-            </div>
-          )}
-
-          {generatedSubtitlesUrlLocal && (
-            <div className="w-full mt-4">
-                <Label className="flex items-center mb-2"><MessageSquare className="mr-2 h-5 w-5 text-blue-500" /> Subtitles Generated</Label>
-                <p className="text-sm text-muted-foreground">
-                    Subtitles URL: <a href={generatedSubtitlesUrlLocal} target="_blank" rel="noopener noreferrer" className="underline">{generatedSubtitlesUrlLocal}</a>
-                </p>
-            </div>
-          )}
-          */}
         </CardFooter>
       )}
     </Card>

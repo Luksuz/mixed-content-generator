@@ -61,6 +61,23 @@ const GeneratorsPage = () => {
   const [audioGenerationError, setAudioGenerationError] = useState<string | null>(null);
   const [generatedSubtitlesUrl, setGeneratedSubtitlesUrl] = useState<string | null>(null);
 
+  // Audio Batch Processing State - Lifted to persist across tab switches
+  const [audioBatchProcessingState, setAudioBatchProcessingState] = useState({
+    chunks: [] as string[],
+    chunkResults: [] as Array<{
+      chunkIndex: number;
+      chunkUrl?: string;
+      error?: string;
+      status: 'pending' | 'processing' | 'completed' | 'failed';
+    }>,
+    currentBatch: 0,
+    totalBatches: 0,
+    processingProgress: 0,
+    isProcessingBatches: false,
+    isConcatenating: false,
+    isGeneratingSubtitles: false,
+  });
+
   // Image Generator State - Lifted
   const [isGeneratingImages, setIsGeneratingImages] = useState<boolean>(false);
   const [generatedImageSetsList, setGeneratedImageSetsList] = useState<GeneratedImageSet[]>([]);
@@ -517,6 +534,8 @@ const GeneratorsPage = () => {
               setIsGeneratingAudio={setIsGeneratingAudio}
               setAudioGenerationError={setAudioGenerationError}
               selectedUserId={actualUserId}
+              batchProcessingState={audioBatchProcessingState}
+              setBatchProcessingState={setAudioBatchProcessingState}
             />
           </TabsContent>
           
