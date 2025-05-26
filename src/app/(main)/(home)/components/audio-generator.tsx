@@ -168,7 +168,7 @@ const AudioGenerator: React.FC<AudioGeneratorProps> = ({
   selectedUserId,
 }) => {
   const [textToConvert, setTextToConvert] = useState<string>(initialText || "");
-  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("elevenlabs");
+  const [selectedProvider, setSelectedProvider] = useState<AudioProvider>("minimax");
   const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);

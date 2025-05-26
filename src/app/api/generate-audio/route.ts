@@ -18,12 +18,12 @@ const GENERATED_AUDIO_DIR_NAME = "generated-audio"; // Main directory for final 
 const MAX_CHUNK_GENERATION_ATTEMPTS = 3; // 1 initial try + 2 retries
 const RETRY_DELAY_MS = 1500; // Delay between retry attempts
 
-const DEFAULT_CHUNK_PROCESSING_BATCH_SIZE = 5; // Renamed from CHUNK_PROCESSING_BATCH_SIZE
+const DEFAULT_CHUNK_PROCESSING_BATCH_SIZE = 4; // Renamed from CHUNK_PROCESSING_BATCH_SIZE
 const DEFAULT_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // Renamed from DELAY_AFTER_CHUNK_BATCH_MS (Default: 66 seconds)
 
 // ElevenLabs specific limits
 const ELEVENLABS_AUDIO_CHUNK_MAX_LENGTH = 1000; // Max characters per chunk for ElevenLabs (reverted to 10000)
-const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 5;
+const ELEVENLABS_CHUNK_PROCESSING_BATCH_SIZE = 4;
 const ELEVENLABS_DELAY_AFTER_CHUNK_BATCH_MS = 60 * 1100; // 1 minute
 
 // Fish Audio specific limits
