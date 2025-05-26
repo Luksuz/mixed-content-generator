@@ -108,6 +108,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </motion.div>
               <span>Compiling Studio</span>
             </CardTitle>
+            <CardDescription className="text-slate-300 text-muted-foreground">Select Images For Rendering</CardDescription>
+
           </CardHeader>
           
           <CardContent className="space-y-6 pt-4">
@@ -401,10 +403,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                 </div>
               </Button>
             </motion.div>
-
-            <div className="pt-2 text-center text-xs text-slate-400">
-              Neurovision™ AI Processing v2.4 • Hybrid Rendering Pipeline
-            </div>
           </CardContent>
         </div>
       </Card>
