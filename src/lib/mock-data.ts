@@ -435,14 +435,14 @@ export const simulateThumbnailGeneration = async (prompt: string): Promise<strin
 };
 
 // Mock Video Data
-export const mockVideoUrl = "https://shotstack-api-v1-output.s3-ap-southeast-2.amazonaws.com/5yhj4ndx70/4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4";
+export const mockVideoUrl = "https://byktarizdjtreqwudqmv.supabase.co/storage/v1/object/public/video-generator//4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4";
 
 // Mock Video Jobs
 export const mockVideoJobs: VideoJob[] = [
   {
     id: "video-12345",
     status: "completed",
-    videoUrl: "https://shotstack-api-v1-output.s3-ap-southeast-2.amazonaws.com/5yhj4ndx70/4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4",
+    videoUrl: mockVideoUrl,
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
     updatedAt: new Date(Date.now() - 6.5 * 24 * 60 * 60 * 1000), // 6.5 days ago
     user_id: "user-123",
