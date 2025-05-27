@@ -435,7 +435,7 @@ export const simulateThumbnailGeneration = async (prompt: string): Promise<strin
 };
 
 // Mock Video Data
-export const mockVideoUrl = "https://byktarizdjtreqwudqmv.supabase.co/storage/v1/object/public/video-generator//4eabe5ec-c2f8-4b3c-9711-4a616c19292f.mp4";
+export const mockVideoUrl = "https://byktarizdjtreqwudqmv.supabase.co/storage/v1/object/public/video-generator/abu-video/copy_E6239CDA-5655-4DDB-B478-B8FFF396D2E8.mov";
 
 // Mock Video Jobs
 export const mockVideoJobs: VideoJob[] = [

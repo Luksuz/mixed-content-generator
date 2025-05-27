@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle, Plus, Sparkles } from "lucide-react";
+import { Film, ImageOff, AlertCircle, Loader2, Video, ArrowDown, CheckCircle, Plus, Sparkles, Eye } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { GeneratedImageSet } from "@/types/image-generation";
 import { motion } from "framer-motion";
@@ -37,6 +37,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
   }, [availableImageSets]);
+
+  // Get the first selected image for preview
+  const firstSelectedImage = selectedImageUrls.length > 0 ? selectedImageUrls[0] : null;
 
   const handleImageSelection = (imageUrl: string) => {
     setLocalError(null);
@@ -147,6 +150,44 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
               </motion.div>
             )}
 
+            {/* Video Preview Section - Show first selected image */}
+            {firstSelectedImage && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="space-y-4 backdrop-blur-md bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-700/30 rounded-lg p-4"
+              >
+                <div>
+                  <Label className="text-lg font-semibold flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-purple-400" />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-200 to-blue-400">
+                      Video Preview
+                    </span>
+                  </Label>
+                  <p className="text-sm text-slate-300 ml-7">
+                    Your video will start with this opening frame.
+                  </p>
+                </div>
+                <div className="border border-purple-700/30 rounded-md p-3 flex justify-center bg-black/20">
+                  <div className="relative w-1/2 aspect-video">
+                    <img 
+                      src={firstSelectedImage} 
+                      alt="Video Opening Frame Preview"
+                      className="object-cover w-full h-full rounded-md shadow-[0_0_15px_rgba(147,51,234,0.3)]"
+                    />
+                    <div className="absolute inset-0 border border-purple-500/50 rounded-md"></div>
+                    <div className="absolute bottom-3 right-3 bg-gradient-to-r from-purple-500 to-blue-600 text-white px-2 py-1 rounded-md text-xs font-medium shadow-lg">
+                      OPENING FRAME
+                    </div>
+                    <div className="absolute top-3 left-3 bg-black/60 text-white/90 px-2 py-1 rounded text-xs">
+                      {selectedImageUrls.length} image{selectedImageUrls.length > 1 ? 's' : ''} selected
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {isGeneratingVideo && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -165,21 +206,55 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                     Neural rendering pipeline processing your visual assets...
                   </p>
                 </div>
-                <div className="border border-blue-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
-                  <div className="text-center space-y-3">
-                    <div className="w-16 h-16 mx-auto relative">
-                      <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
-                      <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
-                      <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-blue-600 animate-spin" style={{ animationDuration: '3s' }}></div>
-                    </div>
-                    <p className="text-blue-200 text-sm">
-                      Estimated completion: ~20 seconds
-                    </p>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                {/* Show preview during generation if we have a first image */}
+                {firstSelectedImage && (
+                  <div className="border border-blue-700/30 rounded-md p-3 bg-black/20">
+                    <div className="flex items-center justify-center space-x-6">
+                      <div className="relative w-1/3 aspect-video">
+                        <img 
+                          src={firstSelectedImage} 
+                          alt="Video Preview"
+                          className="object-cover w-full h-full rounded-md opacity-80"
+                        />
+                        <div className="absolute inset-0 border border-blue-500/50 rounded-md"></div>
+                        <div className="absolute bottom-2 left-2 bg-blue-600/80 text-white px-2 py-1 rounded text-xs">
+                          PREVIEW
+                        </div>
+                      </div>
+                      <div className="text-center space-y-3">
+                        <div className="w-16 h-16 mx-auto relative">
+                          <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
+                          <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                          <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-blue-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                        </div>
+                        <p className="text-blue-200 text-sm">
+                          Estimated completion: ~20 seconds
+                        </p>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {/* Fallback if no preview image */}
+                {!firstSelectedImage && (
+                  <div className="border border-blue-700/30 rounded-md p-4 bg-black/20 flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <div className="w-16 h-16 mx-auto relative">
+                        <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-blue-500 animate-spin"></div>
+                        <div className="absolute inset-2 rounded-full border-t-2 border-l-2 border-purple-400 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }}></div>
+                        <div className="absolute inset-4 rounded-full border-b-2 border-r-2 border-blue-600 animate-spin" style={{ animationDuration: '3s' }}></div>
+                      </div>
+                      <p className="text-blue-200 text-sm">
+                        Estimated completion: ~20 seconds
+                      </p>
+                      <div className="w-full bg-gray-700 rounded-full h-2">
+                        <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 

@@ -132,11 +132,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         // Image is already selected, so remove it
         return prev.filter((_, i) => i !== existingIndex);
       } else {
-        // Image is not selected, check if we're at the limit
-        if (prev.length >= 5) {
-          alert("Maximum 5 images can be selected for regeneration at once");
-          return prev;
-        }
+
         // Add to selection
         return [...prev, { setIndex, imageIndex, prompt }];
       }
@@ -360,7 +356,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
             {/* Number of Images Per Prompt */}
             <div className="space-y-2">
-              <Label htmlFor="images-per-prompt" className="glow-text-red">Images per Prompt: {numImagesPerPrompt}</Label>
+              <Label htmlFor="images-per-prompt" className="glow-text-red">Images: {numImagesPerPrompt}</Label>
               <Slider
                 id="images-per-prompt"
                 min={1}

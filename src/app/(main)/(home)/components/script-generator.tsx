@@ -377,13 +377,6 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
       // Since index is not null at this point, we can safely use it as an array index
       const currentSection = currentScriptSections[index as number];
       
-      // Verify title and theme are available for context in API route
-      if (!title || !theme) {
-        console.error(`❌ Cannot regenerate section - missing title or theme`);
-        alert("Please enter a title and theme before regenerating sections.");
-        return;
-      }
-      
       console.log(`🔄 Starting regeneration for section ${index + 1}: "${currentSection.title}"`);
       console.log(`📄 Using title: "${title}" and theme: "${theme}"`);
       
@@ -461,12 +454,6 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   const handleRegenerateScriptSegment = async (segmentIndex: number, segmentContent: string, prompt?: string) => {
     try {
       console.log(`🔄 Starting regeneration for script segment ${segmentIndex + 1}`);
-      // Verify title and theme are available
-      if (!title || !theme) {
-        console.error(`❌ Cannot regenerate script segment - missing title or theme`);
-        alert("Please enter a title and theme before regenerating script segments.");
-        return;
-      }
 
       console.log(`📄 Using title: "${title}" and theme: "${theme}"`);
       setIsGeneratingScript(true);
@@ -535,13 +522,6 @@ const ScriptGenerator: React.FC<ScriptGeneratorProps> = ({
   // Add a new direct regeneration function that includes a prompt dialog
   const handleDirectRegeneration = async (segmentIndex: number, segmentContent: string) => {
     console.log(`🔄 Initiating direct regeneration for segment ${segmentIndex + 1}`);
-    
-    // Verify title is available
-    if (!title) {
-      console.error(`❌ Cannot regenerate script segment - missing title`);
-      alert("Please enter a title before regenerating script segments.");
-      return;
-    }
     
     // Show prompt dialog
     const prompt = window.prompt("Enter instructions for rewriting this segment:", `Rewrite segment ${segmentIndex + 1} to make it more engaging and impactful.`);

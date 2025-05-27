@@ -158,9 +158,6 @@ const IdeationTab: React.FC = () => {
     // Store in localStorage so the Script tab can access it
     localStorage.setItem('scriptGenerator.title', selectedTitle);
     
-    // Show success message
-    alert(`Selected title: "${selectedTitle}" has been set for script generation!`);
-    
     // Optionally, switch to script tab
     // You could emit an event or use a callback prop to switch tabs
   };
