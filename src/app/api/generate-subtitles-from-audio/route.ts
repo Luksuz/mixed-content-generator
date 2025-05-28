@@ -14,7 +14,7 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
   
   try {
     // Download the audio file
-    console.log("📥 Downloading audio file...");
+    console.log("📥 Downloading audio file...", audioUrl);
     const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
       throw new Error(`Failed to download audio: ${audioResponse.status} ${audioResponse.statusText}`);
