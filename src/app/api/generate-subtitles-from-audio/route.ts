@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from "openai";
+import path from 'path';
+import fs from 'fs';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -21,19 +23,30 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
     }
     
     const audioBuffer = await audioResponse.arrayBuffer();
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
     
-    // Create a File object for OpenAI API
-    const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mpeg' });
+    // Save to temporary file for OpenAI API
+    const tempDir = path.join(process.cwd(), 'temp-audio-processing');
+    await fs.promises.mkdir(tempDir, { recursive: true });
+    
+    const tempAudioPath = path.join(tempDir, `temp-audio-${uuidv4()}.mp3`);
+    await fs.promises.writeFile(tempAudioPath, new Uint8Array(audioBuffer));
     
     console.log("🎵 Transcribing audio with OpenAI Whisper...");
     
     // Use OpenAI Whisper to transcribe the audio directly to SRT format
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: fs.createReadStream(tempAudioPath),
       model: "whisper-1",
       response_format: "srt"
     });
+    
+    // Clean up temporary file
+    try {
+      await fs.promises.unlink(tempAudioPath);
+      console.log("🧹 Cleaned up temporary audio file");
+    } catch (cleanupError) {
+      console.warn("⚠️ Could not clean up temporary audio file:", cleanupError);
+    }
     
     console.log("✅ Transcription complete!");
     return transcription;
