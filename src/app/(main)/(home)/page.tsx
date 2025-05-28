@@ -120,6 +120,7 @@ const GeneratorsPage = () => {
         console.error("Error fetching video jobs:", error);
         setVideoGenerationError(`Failed to load jobs for user: ${error.message}`);
         setVideoJobs([]);
+        setIsGeneratingVideo(false); // No jobs means no generation in progress
       } else if (data) {
         const fetchedJobs: VideoJob[] = data.map(job => ({
             ...job,
@@ -130,6 +131,22 @@ const GeneratorsPage = () => {
         setVideoJobs(fetchedJobs);
         console.log(`Fetched ${fetchedJobs.length} video jobs for user ${actualUserId}`);
         setVideoGenerationError(null); // Clear previous errors
+        
+        // Check if any jobs are still in progress
+        const hasJobsInProgress = fetchedJobs.some(job => 
+          job.status === 'pending' || job.status === 'processing'
+        );
+        
+        // Update isGeneratingVideo based on job statuses
+        setIsGeneratingVideo(hasJobsInProgress);
+        
+        // If a job completed successfully, update the generated video URL
+        const completedJob = fetchedJobs.find(job => 
+          job.status === 'completed' && job.videoUrl
+        );
+        if (completedJob && completedJob.videoUrl) {
+          setGeneratedVideoUrl(completedJob.videoUrl);
+        }
       }
       setIsLoadingJobs(false);
     };
@@ -380,6 +397,7 @@ const GeneratorsPage = () => {
 
       if (!response.ok || data.error) {
         setVideoGenerationError(data.details || data.error || "Failed to start video creation job.");
+        setIsGeneratingVideo(false); // Only set to false on error
       } else if (data.video_id) {
         // Fetch jobs immediately to show pending job
         const supabase = createClient();
@@ -406,13 +424,14 @@ const GeneratorsPage = () => {
         }
         
         setVideoGenerationError(null); // Clear previous errors
+        // Keep isGeneratingVideo as true - it will be set to false when the job completes
       } else {
         setVideoGenerationError("Video creation started but failed to get job ID.");
+        setIsGeneratingVideo(false); // Only set to false on error
       }
     } catch (err: any) { 
       setVideoGenerationError(err.message || "An unexpected error occurred during video creation initiation.");
-    } finally {
-      setIsGeneratingVideo(false);
+      setIsGeneratingVideo(false); // Only set to false on error
     }
   };
 

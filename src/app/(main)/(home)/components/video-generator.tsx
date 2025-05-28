@@ -27,7 +27,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
 }) => {
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [showSuccessMessage, setShowSuccessMessage] = useState<boolean>(false);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState<boolean>(false);
+  const [requestSubmitted, setRequestSubmitted] = useState<boolean>(false);
   const [videoQuality, setVideoQuality] = useState<'low' | 'high'>('low');
 
   const allImageUrls = useMemo(() => {
@@ -51,24 +52,41 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
       return;
     }
     setLocalError(null);
-    setShowSuccessMessage(false);
+    setIsSubmittingRequest(true);
     await onStartVideoCreation(selectedImageUrls, videoQuality);
-    setShowSuccessMessage(true);
+    setRequestSubmitted(true);
+    setIsSubmittingRequest(false);
   };
 
   useEffect(() => {
     setSelectedImageUrls(prevSelected => prevSelected.filter(url => allImageUrls.includes(url)));
   }, [allImageUrls]);
 
+  // Reset request submitted state when video generation starts or there's an error
+  useEffect(() => {
+    if (videoGenerationError) {
+      setRequestSubmitted(false);
+      setIsSubmittingRequest(false);
+    }
+  }, [videoGenerationError]);
+
+  // Reset request submitted state when video is completed
+  useEffect(() => {
+    if (generatedVideoUrl) {
+      setRequestSubmitted(false);
+      setIsSubmittingRequest(false);
+    }
+  }, [generatedVideoUrl]);
+
   // Hide success message after 10 seconds
   useEffect(() => {
-    if (showSuccessMessage) {
+    if (requestSubmitted) {
       const timer = setTimeout(() => {
-        setShowSuccessMessage(false);
+        setRequestSubmitted(false);
       }, 10000);
       return () => clearTimeout(timer);
     }
-  }, [showSuccessMessage]);
+  }, [requestSubmitted]);
 
   return (
     <div className="space-y-8">
@@ -122,15 +140,35 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
             </Alert>
           )}
 
-          {showSuccessMessage && !isGeneratingVideo && !videoGenerationError && (
+          {requestSubmitted && !videoGenerationError && (
             <Alert variant="default" className="bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-500" />
               <AlertTitle>Video Creation Started</AlertTitle>
               <AlertDescription className="flex flex-col space-y-1">
-                <p>Your video is being created. This may take a few minutes.</p>
+                <p>Your video creation request has been submitted successfully!</p>
                 <p className="flex items-center text-sm">
                   <ArrowDown className="h-3 w-3 mr-1" /> Check the <span className="font-semibold mx-1">Video Status</span> section below for updates.
                 </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isGeneratingVideo && requestSubmitted && (
+            <Alert variant="default" className="bg-blue-50">
+              <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+              <AlertTitle>Video Generation In Progress</AlertTitle>
+              <AlertDescription>
+                Your video is being created in the background. This process may take several minutes depending on the number of images and quality selected.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {generatedVideoUrl && (
+            <Alert variant="default" className="bg-green-50">
+              <Video className="h-4 w-4 text-green-500" />
+              <AlertTitle>Video Generation Complete!</AlertTitle>
+              <AlertDescription>
+                Your video has been successfully generated and is ready for download.
               </AlertDescription>
             </Alert>
           )}
@@ -232,9 +270,9 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
           <Button
             className="w-full"
             onClick={handleConfirmAndCreateVideo}
-            disabled={isGeneratingVideo || selectedImageUrls.length === 0}
+            disabled={isSubmittingRequest || selectedImageUrls.length === 0}
           >
-            {isGeneratingVideo ? (
+            {isSubmittingRequest ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating Video...
