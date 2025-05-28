@@ -3,105 +3,53 @@
 import { NextResponse } from "next/server";
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
 import { v4 as uuidv4 } from 'uuid';
+import OpenAI from "openai";
 
-const SHOTSTACK_API_KEY = process.env.SHOTSTACK_API_KEY || 'ovtvkcufDaBDRJnsTLHkMB3eLG6ytwlRoUAPAHPq';
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
   console.log(`🔤 Generating subtitles for audio: ${audioUrl}`);
   
-  // Step 1: Submit the request to generate transcription
-  const ingestResponse = await fetch("https://api.shotstack.io/ingest/v1/sources", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": SHOTSTACK_API_KEY
-    },
-    body: JSON.stringify({
-      url: audioUrl,
-      outputs: {
-        transcription: {
-          format: "srt"
-        }
-      }
-    })
-  });
-
-  if (!ingestResponse.ok) {
-    const errorData = await ingestResponse.json();
-    console.error("❌ Error submitting transcription request:", errorData);
-    throw new Error(`Failed to submit transcription request: ${ingestResponse.status} ${ingestResponse.statusText}`);
-  }
-
-  const ingestData = await ingestResponse.json();
-  console.log("📝 Transcription job submitted:", ingestData);
-  
-  if (!ingestData.data || !ingestData.data.id) {
-    throw new Error("No job ID received from transcription request");
-  }
-  
-  const jobId = ingestData.data.id;
-  console.log(`🆔 Transcription job ID: ${jobId}`);
-  
-  // Step 2: Poll for completion
-  let isComplete = false;
-  let subtitlesUrl = null;
-  let attempts = 0;
-  const maxAttempts = 300; // Maximum 300 attempts (25 minutes at 5-second intervals)
-  
-  console.log("⏳ Waiting for transcription to complete...");
-  
-  while (!isComplete && attempts < maxAttempts) {
-    attempts++;
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds between checks
+  try {
+    // Download the audio file
+    console.log("📥 Downloading audio file...");
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio: ${audioResponse.status} ${audioResponse.statusText}`);
+    }
     
-    const statusResponse = await fetch(`https://api.shotstack.io/ingest/v1/sources/${jobId}`, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "x-api-key": SHOTSTACK_API_KEY
-      }
+    const audioBuffer = await audioResponse.arrayBuffer();
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    
+    // Create a File object for OpenAI API
+    const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mpeg' });
+    
+    console.log("🎵 Transcribing audio with OpenAI Whisper...");
+    
+    // Use OpenAI Whisper to transcribe the audio directly to SRT format
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: "whisper-1",
+      response_format: "srt"
     });
     
-    if (!statusResponse.ok) {
-      console.error(`❌ Error checking status (attempt ${attempts}):`, await statusResponse.text());
-      continue;
-    }
+    console.log("✅ Transcription complete!");
+    return transcription;
     
-    const statusData = await statusResponse.json();
-    console.log(`🔍 Status check ${attempts}:`, statusData.data.attributes.status);
-    
-    if (statusData.data.attributes.status === "ready" && 
-        statusData.data.attributes.outputs.transcription.status === "ready") {
-      isComplete = true;
-      subtitlesUrl = statusData.data.attributes.outputs.transcription.url;
-      console.log("✅ Transcription complete!");
-      console.log(`🔗 Subtitles URL: ${subtitlesUrl}`);
-    } else if (statusData.data.attributes.status === "failed" || 
-               statusData.data.attributes.outputs.transcription.status === "failed") {
-      throw new Error("Transcription job failed");
-    }
+  } catch (error: any) {
+    console.error("❌ Error in OpenAI transcription:", error);
+    throw new Error(`OpenAI transcription failed: ${error.message}`);
   }
-  
-  if (!isComplete) {
-    throw new Error(`Transcription not completed after ${maxAttempts} attempts`);
-  }
-  
-  return subtitlesUrl;
 }
 
-async function downloadAndSaveSubtitles(subtitlesUrl: string, userId: string): Promise<string> {
-  console.log(`📥 Downloading subtitles from: ${subtitlesUrl}`);
+async function saveSubtitlesToSupabase(srtContent: string, userId: string): Promise<string> {
+  console.log(`💾 Saving subtitles to Supabase...`);
   
   try {
-    // Download the subtitles file
-    const response = await fetch(subtitlesUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download subtitles: ${response.status} ${response.statusText}`);
-    }
-    
-    // Get the content as text
-    const srtContent = await response.text();
-    const srtBuffer = Buffer.from(srtContent);
+    // Convert SRT content to buffer
+    const srtBuffer = Buffer.from(srtContent, 'utf-8');
     
     // Create a unique filename in Supabase
     const supabaseDestinationPath = `user_${userId}/subtitles/${uuidv4()}.srt`;
@@ -136,11 +84,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields: audioUrl, userId" }, { status: 400 });
     }
 
-    // Generate subtitles using Shotstack ingest API
-    const shotstackSubtitlesUrl = await generateSubtitlesFromAudio(audioUrl);
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
+    }
+
+    // Generate subtitles using OpenAI Whisper
+    const srtContent = await generateSubtitlesFromAudio(audioUrl);
     
-    // Download and save the subtitles to Supabase
-    const subtitlesUrl = await downloadAndSaveSubtitles(shotstackSubtitlesUrl, userId);
+    // Save the subtitles to Supabase
+    const subtitlesUrl = await saveSubtitlesToSupabase(srtContent, userId);
     
     console.log(`✅ Subtitle generation complete: ${subtitlesUrl}`);
 
