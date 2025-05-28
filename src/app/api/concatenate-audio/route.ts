@@ -53,16 +53,62 @@ async function joinAudioChunks(
   }
 
   if (downloadedChunkPaths.length === 1) {
-    // If there's only one chunk, just move/rename it
+    // If there's only one chunk, still apply compression to reduce file size
     const finalPath = path.join(baseOutputDir, finalOutputFileName);
-    console.log(`📦 Only one chunk, moving ${downloadedChunkPaths[0]} to ${finalPath}`);
-    try {
-      await fsp.rename(downloadedChunkPaths[0], finalPath);
-      return finalPath;
-    } catch (renameError) {
-      console.error(`❌ Error moving single chunk file: ${renameError}`);
-      throw renameError;
-    }
+    console.log(`📦 Single chunk detected, applying compression: ${downloadedChunkPaths[0]} to ${finalPath}`);
+    
+    return new Promise((resolve, reject) => {
+      // Apply same aggressive compression to single chunk
+      const ffmpegArgs = [
+        '-i', downloadedChunkPaths[0],
+        // Audio codec and compression settings
+        '-c:a', 'libmp3lame',        // Use LAME MP3 encoder for better compression
+        '-b:a', '24k',               // Very low bitrate (24 kbps for maximum compression)
+        '-ar', '22050',              // Lower sample rate (22.05 kHz instead of 44.1 kHz)
+        '-ac', '1',                  // Mono audio (single channel)
+        '-q:a', '9',                 // Lowest quality setting for maximum compression
+        '-compression_level', '9',    // Maximum compression level
+        '-joint_stereo', '1',        // Joint stereo encoding (though we're using mono)
+        '-reservoir', '0',           // Disable bit reservoir for consistent bitrate
+        '-abr', '1',                 // Use average bitrate mode
+        // Additional optimization flags
+        '-map_metadata', '-1',       // Remove all metadata to save space
+        '-fflags', '+bitexact',      // Ensure reproducible output
+        '-avoid_negative_ts', 'make_zero', // Avoid negative timestamps
+        '-y',                        // Overwrite output file
+        finalPath
+      ];
+
+      console.log(`🚀 Running ffmpeg compression on single chunk: ffmpeg ${ffmpegArgs.join(' ')}`);
+      const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
+
+      let ffmpegOutput = '';
+      ffmpegProcess.stdout.on('data', (data) => { ffmpegOutput += data.toString(); });
+      ffmpegProcess.stderr.on('data', (data) => { ffmpegOutput += data.toString(); });
+
+      ffmpegProcess.on('close', async (code) => {
+        // Cleanup the original chunk file
+        try {
+          await fsp.rm(downloadedChunkPaths[0]);
+          console.log(`🧹 Cleaned up original chunk file: ${downloadedChunkPaths[0]}`);
+        } catch (cleanupError) {
+          console.warn(`⚠️ Could not clean up original chunk file:`, cleanupError);
+        }
+
+        if (code === 0) {
+          console.log(`✅ Single chunk compression completed: ${finalPath}`);
+          resolve(finalPath);
+        } else {
+          console.error(`❌ ffmpeg failed with code ${code} for single chunk compression.`);
+          reject(new Error(`ffmpeg failed to compress single chunk. Code: ${code}`));
+        }
+      });
+
+      ffmpegProcess.on('error', (err) => {
+        console.error('❌ Failed to start ffmpeg process for single chunk:', err);
+        reject(err);
+      });
+    });
   }
 
   const finalOutputPath = path.join(baseOutputDir, finalOutputFileName);
@@ -83,18 +129,31 @@ async function joinAudioChunks(
   }
 
   return new Promise((resolve, reject) => {
+    // Aggressive compression settings for maximum file size reduction
+    // Target: 2 hours (7200 seconds) under 25MB = ~29 kbps
     const ffmpegArgs = [
       '-f', 'concat',
       '-safe', '0',
       '-i', listFilePath,
-      '-b:a', '64k',
-      '-ar', '44100',
-      '-ac', '1',
-      '-y',
+      // Audio codec and compression settings
+      '-c:a', 'libmp3lame',        // Use LAME MP3 encoder for better compression
+      '-b:a', '24k',               // Very low bitrate (24 kbps for maximum compression)
+      '-ar', '22050',              // Lower sample rate (22.05 kHz instead of 44.1 kHz)
+      '-ac', '1',                  // Mono audio (single channel)
+      '-q:a', '9',                 // Lowest quality setting for maximum compression
+      '-compression_level', '9',    // Maximum compression level
+      '-joint_stereo', '1',        // Joint stereo encoding (though we're using mono)
+      '-reservoir', '0',           // Disable bit reservoir for consistent bitrate
+      '-abr', '1',                 // Use average bitrate mode
+      // Additional optimization flags
+      '-map_metadata', '-1',       // Remove all metadata to save space
+      '-fflags', '+bitexact',      // Ensure reproducible output
+      '-avoid_negative_ts', 'make_zero', // Avoid negative timestamps
+      '-y',                        // Overwrite output file
       finalOutputPath
     ];
 
-    console.log(`🚀 Running ffmpeg command: ffmpeg ${ffmpegArgs.join(' ')}`);
+    console.log(`🚀 Running ffmpeg with aggressive compression: ffmpeg ${ffmpegArgs.join(' ')}`);
     const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
 
     let ffmpegOutput = '';
@@ -133,8 +192,8 @@ async function joinAudioChunks(
             console.log(`🧹 Cleaned up potentially incomplete output file: ${finalOutputPath}`);
           } 
         } catch (e) { 
-          console.warn(`⚠️ Could not clean up failed output file ${finalOutputPath}:`, e);
-        } 
+          console.warn(`⚠️ Could not clean up potentially incomplete output file:`, e);
+        }
         reject(new Error(`ffmpeg failed to join audio chunks. Code: ${code}`));
       }
     });
@@ -208,6 +267,11 @@ export async function POST(request: Request) {
     const duration = await getAudioDuration(finalLocalPath);
     console.log(`🕐 Audio duration: ${duration} seconds`);
     
+    // Get file size for logging
+    const stats = await fsp.stat(finalLocalPath);
+    const fileSizeMB = stats.size / (1024 * 1024);
+    console.log(`📊 Compressed audio file size: ${fileSizeMB.toFixed(2)} MB`);
+    
     // Upload final audio to Supabase
     const supabaseDestinationPath = `user_${userId}/audio/${uuidv4()}.mp3`;
     const finalAudioUrl = await uploadFileToSupabase(finalLocalPath, supabaseDestinationPath, 'audio/mpeg');
@@ -224,12 +288,13 @@ export async function POST(request: Request) {
       console.warn(`⚠️ Failed to cleanup temp directory ${tempDir}:`, cleanupError);
     }
 
-    console.log(`✅ Audio concatenation completed successfully: ${finalAudioUrl}`);
+    console.log(`✅ Audio concatenation completed successfully: ${finalAudioUrl} (${fileSizeMB.toFixed(2)} MB, ${duration} seconds)`);
     
     return NextResponse.json({
       success: true,
       audioUrl: finalAudioUrl,
       duration,
+      fileSizeMB: parseFloat(fileSizeMB.toFixed(2)),
       provider,
       voice,
       chunksProcessed: chunkUrls.length
@@ -242,4 +307,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}
