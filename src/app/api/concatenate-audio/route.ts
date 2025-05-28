@@ -145,7 +145,6 @@ async function joinAudioChunks(
       '-joint_stereo', '1',        // Joint stereo encoding (though we're using mono)
       '-reservoir', '0',           // Disable bit reservoir for consistent bitrate
       '-abr', '1',                 // Use average bitrate mode
-      '-lowpass', '8000',          // Low-pass filter at 8kHz for speech optimization
       // Additional optimization flags
       '-map_metadata', '-1',       // Remove all metadata to save space
       '-fflags', '+bitexact',      // Ensure reproducible output
