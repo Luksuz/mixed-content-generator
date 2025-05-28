@@ -61,16 +61,17 @@ async function joinAudioChunks(
       // Apply same aggressive compression to single chunk
       const ffmpegArgs = [
         '-i', downloadedChunkPaths[0],
-        // Audio codec and compression settings
+        // Audio codec and compression settings - ULTRA AGGRESSIVE
         '-c:a', 'libmp3lame',        // Use LAME MP3 encoder for better compression
-        '-b:a', '24k',               // Very low bitrate (24 kbps for maximum compression)
-        '-ar', '22050',              // Lower sample rate (22.05 kHz instead of 44.1 kHz)
+        '-b:a', '20k',               // Ultra low bitrate (16 kbps for maximum compression)
+        '-ar', '22050',              // Even lower sample rate (16 kHz for speech)
         '-ac', '1',                  // Mono audio (single channel)
         '-q:a', '9',                 // Lowest quality setting for maximum compression
         '-compression_level', '9',    // Maximum compression level
         '-joint_stereo', '1',        // Joint stereo encoding (though we're using mono)
         '-reservoir', '0',           // Disable bit reservoir for consistent bitrate
         '-abr', '1',                 // Use average bitrate mode
+        '-lowpass', '8000',          // Low-pass filter at 8kHz for speech optimization
         // Additional optimization flags
         '-map_metadata', '-1',       // Remove all metadata to save space
         '-fflags', '+bitexact',      // Ensure reproducible output
@@ -129,22 +130,23 @@ async function joinAudioChunks(
   }
 
   return new Promise((resolve, reject) => {
-    // Aggressive compression settings for maximum file size reduction
-    // Target: 2 hours (7200 seconds) under 25MB = ~29 kbps
+    // ULTRA AGGRESSIVE compression settings for maximum file size reduction
+    // Target: 2 hours (7200 seconds) under 20MB = ~22 kbps, using 16 kbps for safety margin
     const ffmpegArgs = [
       '-f', 'concat',
       '-safe', '0',
       '-i', listFilePath,
-      // Audio codec and compression settings
+      // Audio codec and compression settings - ULTRA AGGRESSIVE
       '-c:a', 'libmp3lame',        // Use LAME MP3 encoder for better compression
-      '-b:a', '24k',               // Very low bitrate (24 kbps for maximum compression)
-      '-ar', '22050',              // Lower sample rate (22.05 kHz instead of 44.1 kHz)
+      '-b:a', '16k',               // Ultra low bitrate (16 kbps for maximum compression)
+      '-ar', '16000',              // Even lower sample rate (16 kHz for speech)
       '-ac', '1',                  // Mono audio (single channel)
       '-q:a', '9',                 // Lowest quality setting for maximum compression
       '-compression_level', '9',    // Maximum compression level
       '-joint_stereo', '1',        // Joint stereo encoding (though we're using mono)
       '-reservoir', '0',           // Disable bit reservoir for consistent bitrate
       '-abr', '1',                 // Use average bitrate mode
+      '-lowpass', '8000',          // Low-pass filter at 8kHz for speech optimization
       // Additional optimization flags
       '-map_metadata', '-1',       // Remove all metadata to save space
       '-fflags', '+bitexact',      // Ensure reproducible output
@@ -153,7 +155,7 @@ async function joinAudioChunks(
       finalOutputPath
     ];
 
-    console.log(`🚀 Running ffmpeg with aggressive compression: ffmpeg ${ffmpegArgs.join(' ')}`);
+    console.log(`🚀 Running ffmpeg with ULTRA aggressive compression: ffmpeg ${ffmpegArgs.join(' ')}`);
     const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
 
     let ffmpegOutput = '';
