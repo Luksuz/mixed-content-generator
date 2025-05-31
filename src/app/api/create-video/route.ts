@@ -29,7 +29,17 @@ async function isUrlAccessible(url: string): Promise<boolean> {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateVideoRequestBody = await request.json();
-    const { imageUrls, audioUrl, subtitlesUrl, userId, thumbnailUrl, quality = 'low' } = body;
+    const { 
+      imageUrls, 
+      audioUrl, 
+      subtitlesUrl, 
+      userId, 
+      thumbnailUrl, 
+      quality = 'low',
+      enableOverlay = true,
+      enableZoom = true,
+      enableSubtitles = true
+    } = body;
     
     console.log("📥 Received video creation request:");
     console.log(`- Images: ${imageUrls?.length || 0}`);
@@ -38,6 +48,9 @@ export async function POST(request: NextRequest) {
     console.log(`- User ID: ${userId || 'Not provided'}`);
     console.log(`- Thumbnail: ${thumbnailUrl ? 'YES' : 'NO'}`);
     console.log(`- Quality: ${quality}`);
+    console.log(`- Enable Overlay: ${enableOverlay}`);
+    console.log(`- Enable Zoom: ${enableZoom}`);
+    console.log(`- Enable Subtitles: ${enableSubtitles}`);
 
     console.log(`📋 Subtitle configuration:
       - Subtitles URL provided: ${subtitlesUrl ? 'YES' : 'NO'}
@@ -109,46 +122,60 @@ export async function POST(request: NextRequest) {
     // Create multiple clips for zoom in/out effect since Shotstack doesn't have a direct "zoomInOut" effect
     // We'll create alternating zoom in and zoom out clips with faster cycles
     const zoomClips = [];
-    const zoomDuration = 15; // Each zoom cycle lasts 10 seconds
-    const numZoomCycles = Math.ceil(secondPartDuration / (zoomDuration * 2));
     
-    for (let i = 0; i < numZoomCycles; i++) {
-      // Add zoom in clip
-      zoomClips.push({
-        asset: {
-          type: "image",
-          src: imageUrls[imageUrls.length - 1]
-        },
-        start: firstPartDuration + (i * zoomDuration * 2),
-        length: zoomDuration,
-        effect: "zoomIn",
-        fit: "cover"
-      });
+    if (enableZoom) {
+      const zoomDuration = 15; // Each zoom cycle lasts 15 seconds
+      const numZoomCycles = Math.ceil(secondPartDuration / (zoomDuration * 2));
       
-      // Add zoom out clip if there's still time left
-      if (firstPartDuration + (i * zoomDuration * 2) + zoomDuration < totalDuration) {
+      for (let i = 0; i < numZoomCycles; i++) {
+        // Add zoom in clip
         zoomClips.push({
           asset: {
             type: "image",
             src: imageUrls[imageUrls.length - 1]
           },
-          start: firstPartDuration + (i * zoomDuration * 2) + zoomDuration,
-          length: Math.min(zoomDuration, totalDuration - (firstPartDuration + (i * zoomDuration * 2) + zoomDuration)),
-          effect: "zoomOut",
+          start: firstPartDuration + (i * zoomDuration * 2),
+          length: zoomDuration,
+          effect: "zoomIn",
           fit: "cover"
         });
+        
+        // Add zoom out clip if there's still time left
+        if (firstPartDuration + (i * zoomDuration * 2) + zoomDuration < totalDuration) {
+          zoomClips.push({
+            asset: {
+              type: "image",
+              src: imageUrls[imageUrls.length - 1]
+            },
+            start: firstPartDuration + (i * zoomDuration * 2) + zoomDuration,
+            length: Math.min(zoomDuration, totalDuration - (firstPartDuration + (i * zoomDuration * 2) + zoomDuration)),
+            effect: "zoomOut",
+            fit: "cover"
+          });
+        }
       }
+    } else {
+      // If zoom is disabled, just show the last image statically
+      zoomClips.push({
+        asset: {
+          type: "image",
+          src: imageUrls[imageUrls.length - 1]
+        },
+        start: firstPartDuration,
+        length: secondPartDuration,
+        fit: "cover"
+      });
     }
 
-    // Check if the dust overlay is accessible
-    const isOverlayAvailable = await isUrlAccessible(DUST_OVERLAY_URL);
-    console.log(`Dust overlay availability check: ${isOverlayAvailable ? 'Available' : 'Not available'}`);
+    // Check if the dust overlay is accessible and if overlay is enabled
+    const isOverlayAvailable = enableOverlay ? await isUrlAccessible(DUST_OVERLAY_URL) : false;
+    console.log(`Dust overlay availability check: ${isOverlayAvailable ? 'Available and enabled' : enableOverlay ? 'Not available' : 'Disabled by user'}`);
 
     // Initialize tracks array
     let tracks = [];
 
-    // Track for subtitles (captions) - Add this first if it exists
-    if (subtitlesUrl) {
+    // Track for subtitles (captions) - Add this first if it exists and is enabled
+    if (subtitlesUrl && enableSubtitles) {
       console.log(`Adding subtitles to video: ${subtitlesUrl}`);
       const captionTrack = {
         clips: [
@@ -171,6 +198,10 @@ export async function POST(request: NextRequest) {
         ]
       };
       tracks.push(captionTrack);
+    } else if (subtitlesUrl && !enableSubtitles) {
+      console.log(`Subtitles available but disabled by user: ${subtitlesUrl}`);
+    } else if (!subtitlesUrl && enableSubtitles) {
+      console.log(`Subtitles enabled but no subtitles URL provided`);
     }
 
     // Track for images
@@ -263,7 +294,9 @@ export async function POST(request: NextRequest) {
     console.log(`- Total tracks: ${tracks.length}`);
     console.log(`- Images: ${imageUrls.length}`);
     console.log(`- Audio: ${audioUrl ? 'YES' : 'NO'}`);
-    console.log(`- Subtitles: ${subtitlesUrl ? 'Manual file' : 'Automatic'}`);
+    console.log(`- Subtitles: ${subtitlesUrl && enableSubtitles ? 'YES' : subtitlesUrl ? 'DISABLED' : 'NO'}`);
+    console.log(`- Overlay: ${isOverlayAvailable ? 'YES' : enableOverlay ? 'UNAVAILABLE' : 'DISABLED'}`);
+    console.log(`- Zoom Effects: ${enableZoom ? 'YES' : 'NO'}`);
     
     const shotstackResponse = await fetch(`${SHOTSTACK_ENDPOINT}/render`, {
       method: "POST",

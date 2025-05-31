@@ -5,6 +5,9 @@ export interface CreateVideoRequestBody {
     userId?: string;
     thumbnailUrl?: string; // Custom thumbnail URL generated with Leonardo.ai
     quality?: 'low' | 'high'; // Video quality setting
+    enableOverlay?: boolean; // Enable/disable dust overlay effect
+    enableZoom?: boolean; // Enable/disable zoom effects on images
+    enableSubtitles?: boolean; // Enable/disable subtitles in video
   }
   
   export interface CreateVideoResponse {

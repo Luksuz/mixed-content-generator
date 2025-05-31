@@ -89,8 +89,10 @@ const GeneratorsPage = () => {
 
   // Video Generator State - New
   const [isGeneratingVideo, setIsGeneratingVideo] = useState<boolean>(false);
+  const [isSubmittingVideo, setIsSubmittingVideo] = useState<boolean>(false);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [videoGenerationError, setVideoGenerationError] = useState<string | null>(null);
+  const [videoSubmissionSuccess, setVideoSubmissionSuccess] = useState<boolean>(false);
 
   // State for video job statuses
   const [videoJobs, setVideoJobs] = useState<VideoJob[]>([]);
@@ -221,56 +223,124 @@ const GeneratorsPage = () => {
     setIsGeneratingImages(true);
     setImageGenerationError(null);
     setGeneratedImageSetsList([]); 
-    setCurrentImageGeneratingInfo(`Generating ${numberOfImagesPerPrompt} image${numberOfImagesPerPrompt > 1 ? 's' : ''} for ${promptsForGeneration.length} prompt${promptsForGeneration.length > 1 ? 's' : ''}...`);
+    
+    // Frontend batch processing
+    const BATCH_SIZE = 5; // Process 3 prompts at a time
+    const totalBatches = Math.ceil(promptsForGeneration.length / BATCH_SIZE);
+    let completedBatches = 0;
+    let allImageSets: GeneratedImageSet[] = [];
     
     try {
-      // Use the new batch processing endpoint with rate limiting
-      const response = await fetch('/api/generate-images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          prompts: promptsForGeneration,
-          minimaxAspectRatio: "16:9",
-          userId: actualUserId || 'unknown_user',
-          numberOfImagesPerPrompt
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate images');
-      }
-
-      const data = await response.json();
-      
-      if (data.imageUrls && Array.isArray(data.imageUrls)) {
-        // Convert the flat array of image URLs to a GeneratedImageSet format
-        const newImageSet: GeneratedImageSet = {
-          originalPrompt: promptsForGeneration.join(' | '),
-          imageUrls: data.imageUrls,
-          imageData: []
-        };
+      // Process prompts in batches
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * BATCH_SIZE;
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, promptsForGeneration.length);
+        const batchPrompts = promptsForGeneration.slice(batchStart, batchEnd);
         
-        setGeneratedImageSetsList([newImageSet]);
-        console.log(`Successfully generated ${data.imageUrls.length} images`);
+        // Update progress info
+        setCurrentImageGeneratingInfo(`Processing batch ${batchIndex + 1}/${totalBatches} (${batchPrompts.length} prompts)`);
         
-        // Log any failed prompts
-        if (data.failedPrompts && data.failedPrompts.length > 0) {
-          console.warn(`${data.failedPrompts.length} prompts failed to generate:`, 
-            data.failedPrompts.map((f: {index: number; prompt: string; error?: string}) => 
-              `Index ${f.index}: ${f.prompt.substring(0, 30)}... - ${f.error}`).join('\n'));
+        console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: prompts ${batchStart + 1}-${batchEnd}`);
+        
+        // Process current batch
+        const batchImageSets = await Promise.allSettled(
+          batchPrompts.map(async (prompt, promptIndex) => {
+            const globalPromptIndex = batchStart + promptIndex;
+            
+            try {
+              // Update progress for individual prompt within batch
+              setCurrentImageGeneratingInfo(`Processing batch ${batchIndex + 1}/${totalBatches}`);
+              
+              // Call the single image generation API
+              const response = await fetch('/api/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  provider,
+                  prompt,
+                  numberOfImages: numberOfImagesPerPrompt,
+                  userId: actualUserId || 'unknown_user'
+                }),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to generate image');
+              }
+
+              const data = await response.json();
+              
+              // Create image set from response
+              const imageSet: GeneratedImageSet = {
+                originalPrompt: prompt,
+                imageUrls: data.imageUrls || [],
+                imageData: data.imageData || []
+              };
+              
+              console.log(`✅ Completed prompt ${globalPromptIndex + 1}/${promptsForGeneration.length}: ${imageSet.imageUrls.length} images generated`);
+              return imageSet;
+              
+            } catch (error: any) {
+              console.error(`❌ Failed prompt ${globalPromptIndex + 1}/${promptsForGeneration.length}:`, error);
+              return {
+                originalPrompt: prompt,
+                imageUrls: [],
+                imageData: [],
+                error: error.message || 'Unknown error'
+              } as GeneratedImageSet;
+            }
+          })
+        );
+        
+        // Process batch results
+        const batchResults = batchImageSets.map(result => 
+          result.status === 'fulfilled' ? result.value : {
+            originalPrompt: 'Failed prompt',
+            imageUrls: [],
+            imageData: [],
+            error: result.reason?.message || 'Unknown error'
+          }
+        );
+        
+        // Add batch results to accumulator
+        allImageSets.push(...batchResults);
+        
+        // Update the UI with accumulated results
+        setGeneratedImageSetsList([...allImageSets]);
+        
+        completedBatches++;
+        const totalImages = allImageSets.reduce((sum, set) => sum + (set.imageUrls?.length || 0), 0);
+        
+        // Update progress
+        setCurrentImageGeneratingInfo(`Completed batch ${completedBatches}/${totalBatches} - ${totalImages} images generated`);
+        
+        console.log(`✅ Batch ${batchIndex + 1}/${totalBatches} completed. Total images so far: ${totalImages}`);
+        
+        // Add delay between batches (except for the last batch)
+        if (batchIndex < totalBatches - 1) {
+          setCurrentImageGeneratingInfo(`Completed batch ${completedBatches}/${totalBatches} - waiting before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay between batches
         }
-      } else {
-        setImageGenerationError('Received invalid response from image generation service');
       }
+      
+      const totalImages = allImageSets.reduce((sum, set) => sum + (set.imageUrls?.length || 0), 0);
+      const totalPrompts = promptsForGeneration.length;
+      
+      console.log(`🎉 Image generation completed: ${totalImages} images generated across ${totalPrompts} prompts`);
+      setCurrentImageGeneratingInfo(`✅ Generation complete - ${totalImages} images from ${totalPrompts} prompts`);
+      
+      // Clear the info message after a short delay
+      setTimeout(() => {
+        setCurrentImageGeneratingInfo(null);
+      }, 3000);
+      
     } catch (err: any) {
       const errorMsg = err.message || 'An unexpected error occurred during image generation';
       console.error('Image generation error:', err);
       setImageGenerationError(errorMsg);
+      setCurrentImageGeneratingInfo(null);
     } finally {
       setIsGeneratingImages(false);
-      setCurrentImageGeneratingInfo(null);
     }
   };
 
@@ -367,13 +437,12 @@ const GeneratorsPage = () => {
     }
     if (!generatedAudioUrl) {
       setVideoGenerationError("Audio has not been generated or is missing.");
-      setIsGeneratingVideo(false);
       return;
     }
 
-    setIsGeneratingVideo(true);
-    setGeneratedVideoUrl(null);
+    setIsSubmittingVideo(true);
     setVideoGenerationError(null);
+    setVideoSubmissionSuccess(false);
     
     try {
       const requestBody: CreateVideoRequestBody = {
@@ -397,7 +466,8 @@ const GeneratorsPage = () => {
 
       if (!response.ok || data.error) {
         setVideoGenerationError(data.details || data.error || "Failed to start video creation job.");
-        setIsGeneratingVideo(false); // Only set to false on error
+        setIsSubmittingVideo(false);
+        setVideoSubmissionSuccess(false);
       } else if (data.video_id) {
         // Fetch jobs immediately to show pending job
         const supabase = createClient();
@@ -423,15 +493,23 @@ const GeneratorsPage = () => {
           setVideoJobs(prevJobs => [newJob, ...prevJobs]);
         }
         
-        setVideoGenerationError(null); // Clear previous errors
-        // Keep isGeneratingVideo as true - it will be set to false when the job completes
+        setVideoGenerationError(null);
+        setVideoSubmissionSuccess(true);
+        setIsSubmittingVideo(false); // Only reset submission state
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setVideoSubmissionSuccess(false);
+        }, 5000);
       } else {
         setVideoGenerationError("Video creation started but failed to get job ID.");
-        setIsGeneratingVideo(false); // Only set to false on error
+        setIsSubmittingVideo(false);
+        setVideoSubmissionSuccess(false);
       }
     } catch (err: any) { 
       setVideoGenerationError(err.message || "An unexpected error occurred during video creation initiation.");
-      setIsGeneratingVideo(false); // Only set to false on error
+      setIsSubmittingVideo(false);
+      setVideoSubmissionSuccess(false);
     }
   };
 
@@ -583,8 +661,8 @@ const GeneratorsPage = () => {
           <TabsContent value="video" className="mt-0">
             <VideoGenerator 
               availableImageSets={generatedImageSetsList}
-              isGeneratingVideo={isGeneratingVideo}
-              generatedVideoUrl={generatedVideoUrl}
+              isSubmittingVideo={isSubmittingVideo}
+              videoSubmissionSuccess={videoSubmissionSuccess}
               videoGenerationError={videoGenerationError}
               onStartVideoCreation={handleStartVideoCreation}
               thumbnailUrl={generatedThumbnailUrl}

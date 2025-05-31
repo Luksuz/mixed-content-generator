@@ -65,7 +65,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   onThumbnailGenerated
 }) => {
   const [manualPrompt, setManualPrompt] = useState(""); // Was 'prompt'
-  const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("openai"); // Was 'style'
+  const [selectedProvider, setSelectedProvider] = useState<ImageProvider>("minimax"); // Was 'style'
   
   // New state for tracking selected images for regeneration
   const [selectedImages, setSelectedImages] = useState<{ setIndex: number; imageIndex: number; prompt: string }[]>([]);
@@ -985,19 +985,57 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
 
         {/* Generated Images */}
         <div className="space-y-6">
-           {/* Loading state or initial placeholder */}
+           {/* Enhanced Loading state with detailed progress */}
           {(isLoadingImages && imageSets.length === 0) || (!isLoadingImages && imageSets.length === 0 && promptsAvailable && !generationError) ? (
-            <div className="h-[300px] flex flex-col items-center justify-center border rounded-lg bg-muted/50 text-center p-4">
+            <div className="h-[400px] flex flex-col items-center justify-center border rounded-lg bg-muted/50 text-center p-6">
               {isLoadingImages ? (
                 <>
-                  <div className="relative w-24 h-24">
+                  <div className="relative w-32 h-32 mb-6">
                     <div className="absolute animate-ping w-full h-full rounded-full bg-primary/30"></div>
                     <div className="relative flex items-center justify-center w-full h-full rounded-full bg-primary/50">
-                      <ImageIcon size={40} className="text-white" />
+                      <ImageIcon size={48} className="text-white" />
                     </div>
                   </div>
-                  <p className="text-muted-foreground mt-6">{generatingInfo || "Creating your images..."}</p>
-                  <p className="text-xs text-muted-foreground mt-2">This typically takes 15-30 seconds</p>
+                  
+                  {/* Progress Information */}
+                  <div className="w-full max-w-md space-y-3">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        {generatingInfo || "Generating images..."}
+                      </h3>
+                    </div>
+
+                    {/* Simple Progress Bar */}
+                    {generatingInfo && generatingInfo.includes('/') && (
+                      <div className="space-y-2">
+                        {(() => {
+                          const progressMatch = generatingInfo.match(/(\d+)\/(\d+)/);
+                          if (progressMatch) {
+                            const current = parseInt(progressMatch[1]);
+                            const total = parseInt(progressMatch[2]);
+                            const percentage = Math.round((current / total) * 100);
+                            
+                            return (
+                              <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
+                                <div 
+                                  className="bg-primary h-2 rounded-full transition-all duration-500 ease-out"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Loading animation dots */}
+                  <div className="flex space-x-1 mt-4">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -1009,6 +1047,28 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               )}
             </div>
           ) : null}
+
+          {/* Enhanced Loading state for when images are being generated alongside existing ones */}
+          {isLoadingImages && imageSets.length > 0 && (
+            <div className="p-4 border rounded-lg bg-card shadow-sm">
+              <div className="flex items-center space-x-4">
+                <div className="relative w-12 h-12">
+                  <div className="absolute animate-ping w-full h-full rounded-full bg-primary/30"></div>
+                  <div className="relative flex items-center justify-center w-full h-full rounded-full bg-primary/50">
+                    <ImageIcon size={24} className="text-white" />
+                  </div>
+                </div>
+                
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-medium">
+                      {generatingInfo || "Generating additional images..."}
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Edit Prompt Dialog */}
           {editingImageIndex !== null && (

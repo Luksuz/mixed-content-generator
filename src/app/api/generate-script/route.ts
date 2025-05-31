@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     // Initialize the model
     const model = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
-      modelName: "gpt-4o-mini",
+      modelName: "gpt-4.1",
       temperature: 0.7,
     });
 
@@ -42,9 +42,22 @@ export async function POST(request: Request) {
     // Add transcript as inspiration if provided
     if (inspirationalTranscript && inspirationalTranscript.trim()) {
       additionalInstructions += `
-    INSPIRATIONAL TRANSCRIPT:
-    Use the following transcript as inspiration for the tone, style, and structure of your script:
+    INSPIRATIONAL TRANSCRIPT FOR STYLE REFERENCE ONLY:
+    The following transcript should ONLY be used as inspiration for the tone, style, structure, and format of your script.
+    DO NOT use the content, topic, or subject matter from this transcript.
+    Your script must be about the title "${title}" and theme "${theme || 'provided'}", NOT about the topics mentioned in this transcript.
+    
+    Use this transcript to understand:
+    - Writing style and tone
+    - Narrative structure and pacing
+    - How scenes flow and transition
+    - Storytelling techniques and format
+    - Dialogue style (if applicable)
+    
+    TRANSCRIPT FOR STYLE REFERENCE:
     ${inspirationalTranscript.trim()}
+    
+    IMPORTANT: Create your story about "${title}" using the above transcript's STYLE ONLY, not its content or topic.
     `;
     }
     
@@ -126,7 +139,7 @@ export async function POST(request: Request) {
     IMPORTANT INSTRUCTIONS FOR NARRATOR CALLS TO ACTION (CTAs):
     You MUST incorporate the following CTAs directly into the 'writingInstructions' of the appropriate sections. These CTAs are spoken by the narrator. Ensure these CTAs are integrated naturally within the narrative flow where specified.
 
-    1.  **CTA 1 (After First Hook):** ${startSection <= 1 && endSection >= 2 ? "In the 'writingInstructions' for the FIRST SECTION, immediately after the initial hook (typically 15-20 seconds into the narration), include this EXACT text: \"Before we jump back in, tell us where you're tuning in from, and if this story touches you, make sure you're subscribed—because tomorrow, I've saved something extra special for you!\" This CTA must be included early in the first section, right after capturing the audience's attention." : "You do not need to include this CTA in this batch of sections."}
+    1.  **CTA 1 (After First Hook):** ${startSection <= 1 && endSection >= 2 ? "In the 'writingInstructions' for the FIRST SECTION, after approximately 70-100 words of narrative content (about 30-40 seconds of speaking time), include this EXACT text: \"Before we jump back in, tell us where you're tuning in from, and if this story touches you, make sure you're subscribed—because tomorrow, I've saved something extra special for you!\" This CTA should be placed after the initial hook and setup, once the audience is engaged with the story." : "You do not need to include this CTA in this batch of sections."}
     
     2.  **CTA 2 (Mid-Script ~10 minutes / ~1500 words):** ${(wordCount >= 1500) && (startSection <= Math.floor(numSections/3) && endSection >= Math.floor(numSections/3)) ? "For scripts long enough to have a 10-minute mark (around 1500 words of story content), embed this CTA into the 'writingInstructions' of a suitable mid-point section: \"Preparing and narrating this story took us a lot of time, so if you are enjoying it, subscribe to our channel, it means a lot to us! Now back to the story.\"" : "You do not need to include this CTA in this batch of sections."}
     

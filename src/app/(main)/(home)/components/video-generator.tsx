@@ -10,26 +10,27 @@ import { GeneratedImageSet } from "@/types/image-generation";
 
 interface VideoGeneratorProps {
   availableImageSets: GeneratedImageSet[];
-  isGeneratingVideo: boolean;
-  generatedVideoUrl: string | null;
+  isSubmittingVideo: boolean;
+  videoSubmissionSuccess: boolean;
   videoGenerationError: string | null;
-  onStartVideoCreation: (selectedImageUrls: string[], quality: 'low' | 'high') => Promise<void>;
+  onStartVideoCreation: (selectedImageUrls: string[], quality: 'low' | 'high', enableOverlay?: boolean, enableZoom?: boolean, enableSubtitles?: boolean) => Promise<void>;
   thumbnailUrl?: string | null;
 }
 
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({
   availableImageSets,
-  isGeneratingVideo,
-  generatedVideoUrl,
+  isSubmittingVideo,
+  videoSubmissionSuccess,
   videoGenerationError,
   onStartVideoCreation,
   thumbnailUrl,
 }) => {
   const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [isSubmittingRequest, setIsSubmittingRequest] = useState<boolean>(false);
-  const [requestSubmitted, setRequestSubmitted] = useState<boolean>(false);
   const [videoQuality, setVideoQuality] = useState<'low' | 'high'>('low');
+  const [enableOverlay, setEnableOverlay] = useState<boolean>(true);
+  const [enableZoom, setEnableZoom] = useState<boolean>(true);
+  const [enableSubtitles, setEnableSubtitles] = useState<boolean>(true);
 
   const allImageUrls = useMemo(() => {
     return availableImageSets.flatMap(set => set.imageUrls || []);
@@ -52,41 +53,17 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
       return;
     }
     setLocalError(null);
-    setIsSubmittingRequest(true);
-    await onStartVideoCreation(selectedImageUrls, videoQuality);
-    setRequestSubmitted(true);
-    setIsSubmittingRequest(false);
+    
+    try {
+      await onStartVideoCreation(selectedImageUrls, videoQuality, enableOverlay, enableZoom, enableSubtitles);
+    } catch (error) {
+      // Parent component handles error state
+    }
   };
 
   useEffect(() => {
     setSelectedImageUrls(prevSelected => prevSelected.filter(url => allImageUrls.includes(url)));
   }, [allImageUrls]);
-
-  // Reset request submitted state when video generation starts or there's an error
-  useEffect(() => {
-    if (videoGenerationError) {
-      setRequestSubmitted(false);
-      setIsSubmittingRequest(false);
-    }
-  }, [videoGenerationError]);
-
-  // Reset request submitted state when video is completed
-  useEffect(() => {
-    if (generatedVideoUrl) {
-      setRequestSubmitted(false);
-      setIsSubmittingRequest(false);
-    }
-  }, [generatedVideoUrl]);
-
-  // Hide success message after 10 seconds
-  useEffect(() => {
-    if (requestSubmitted) {
-      const timer = setTimeout(() => {
-        setRequestSubmitted(false);
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [requestSubmitted]);
 
   return (
     <div className="space-y-8">
@@ -140,35 +117,15 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
             </Alert>
           )}
 
-          {requestSubmitted && !videoGenerationError && (
+          {videoSubmissionSuccess && (
             <Alert variant="default" className="bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-500" />
-              <AlertTitle>Video Creation Started</AlertTitle>
+              <AlertTitle>Video Submitted Successfully!</AlertTitle>
               <AlertDescription className="flex flex-col space-y-1">
-                <p>Your video creation request has been submitted successfully!</p>
+                <p>Your video creation request has been submitted and is being processed.</p>
                 <p className="flex items-center text-sm">
                   <ArrowDown className="h-3 w-3 mr-1" /> Check the <span className="font-semibold mx-1">Video Status</span> section below for updates.
                 </p>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isGeneratingVideo && requestSubmitted && (
-            <Alert variant="default" className="bg-blue-50">
-              <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-              <AlertTitle>Video Generation In Progress</AlertTitle>
-              <AlertDescription>
-                Your video is being created in the background. This process may take several minutes depending on the number of images and quality selected.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {generatedVideoUrl && (
-            <Alert variant="default" className="bg-green-50">
-              <Video className="h-4 w-4 text-green-500" />
-              <AlertTitle>Video Generation Complete!</AlertTitle>
-              <AlertDescription>
-                Your video has been successfully generated and is ready for download.
               </AlertDescription>
             </Alert>
           )}
@@ -201,6 +158,64 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
                     className="text-primary"
                   />
                   <span className="text-sm">High Quality (Slower)</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-lg font-semibold">Video Effects</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Configure visual effects for your video.
+              </p>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enableOverlay}
+                    onChange={(e) => setEnableOverlay(e.target.checked)}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">Enable Dust Overlay</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enableZoom}
+                    onChange={(e) => setEnableZoom(e.target.checked)}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">Enable Zoom Effects</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-lg font-semibold">Subtitles</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Choose whether to include subtitles in your video.
+              </p>
+              <div className="flex gap-4">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="subtitles"
+                    value="enabled"
+                    checked={enableSubtitles === true}
+                    onChange={() => setEnableSubtitles(true)}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">With Subtitles</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="subtitles"
+                    value="disabled"
+                    checked={enableSubtitles === false}
+                    onChange={() => setEnableSubtitles(false)}
+                    className="text-primary"
+                  />
+                  <span className="text-sm">No Subtitles</span>
                 </label>
               </div>
             </div>
@@ -270,12 +285,17 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({
           <Button
             className="w-full"
             onClick={handleConfirmAndCreateVideo}
-            disabled={isSubmittingRequest || selectedImageUrls.length === 0}
+            disabled={isSubmittingVideo || selectedImageUrls.length === 0}
           >
-            {isSubmittingRequest ? (
+            {isSubmittingVideo ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Video...
+                Submitting Video Request...
+              </>
+            ) : videoSubmissionSuccess ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                Video Submitted Successfully!
               </>
             ) : (
               "Confirm and Create Video"

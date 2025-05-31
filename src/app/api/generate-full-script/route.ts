@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     // Initialize the model
     const model = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
-      modelName: "gpt-4o-mini",
+      modelName: "gpt-4.1",
       temperature: 0.7,
     });
     console.log("Model initialized");
@@ -54,6 +54,16 @@ The following words should be completely avoided in your script: ${wordsList.joi
       }
     }
 
+    // Add reminder about focusing on the title's content, not any reference material
+    additionalInstructions += `
+
+CRITICAL CONTENT FOCUS:
+Your script must be about "${title}" and the theme "${theme || 'provided'}".
+If any inspirational content was used during outline creation, it was ONLY for style reference.
+DO NOT include content, topics, or subject matter from any reference material.
+Focus exclusively on creating a story about "${title}".
+`;
+
     // Create an async function to process a single section
     const processSection = async (section: ScriptSection, index: number) => {
       try {
@@ -68,6 +78,9 @@ THEME: ${theme || "No specific theme provided"}
 SECTION ${index + 1} TITLE: ${section.title}
 WRITING INSTRUCTIONS: ${section.writingInstructions}
 ${additionalInstructions}
+
+CRITICAL: Your script must be about "${title}" - create content that directly relates to this title.
+If any reference material was mentioned in the writing instructions, use it ONLY for style inspiration, not content.
 
 Based on the WRITING INSTRUCTIONS, generate ONLY the text that is to be spoken aloud by a narrator for this section of the script.
 Your response must exclusively contain the narrative and dialogue that will be voiced.
