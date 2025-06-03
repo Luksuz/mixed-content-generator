@@ -237,40 +237,6 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     });
   };
 
-  // Function to regenerate all selected images
-  const regenerateSelectedImages = async () => {
-    if (selectedImages.length === 0) return;
-    
-    setRegenerating(true);
-    
-    try {
-      // Extract prompts from selected images
-      const prompts = selectedImages.map(item => {
-        // Add style enhancements to the prompt
-        let styleEnhancement = "";
-        if (imageTonePreference === "light") {
-          styleEnhancement = ", bright lighting, well-lit scene, vibrant, daytime";
-        } else if (imageTonePreference === "dark") {
-          styleEnhancement = ", dramatic lighting, dark atmosphere, shadows, low-key lighting";
-        }
-        
-        return customStyleInput 
-          ? `${item.prompt} (Style: ${customStyleInput}${styleEnhancement})`
-          : `${item.prompt} (Style: ${selectedImageStyle}${styleEnhancement})`;
-      });
-      
-      // Call the parent's regenerate function
-      await onRegenerateImages?.(selectedProvider, prompts);
-      
-      // Clear selection after regeneration
-      setSelectedImages([]);
-    } catch (err) {
-      console.error("Error regenerating images:", err);
-    } finally {
-      setRegenerating(false);
-    }
-  };
-  
   // Function to regenerate all images
   const regenerateAllImages = async () => {
     // Create an array of all unique prompts from image sets
@@ -301,6 +267,66 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       await onRegenerateImages?.(selectedProvider, enhancedPrompts);
     } catch (err) {
       console.error("Error regenerating all images:", err);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  // Function to regenerate a single image
+  const regenerateSingleImage = async (prompt: string) => {
+    setRegenerating(true);
+    
+    try {
+      // Add style enhancements to the prompt
+      let styleEnhancement = "";
+      if (imageTonePreference === "light") {
+        styleEnhancement = ", bright lighting, well-lit scene, vibrant, daytime";
+      } else if (imageTonePreference === "dark") {
+        styleEnhancement = ", dramatic lighting, dark atmosphere, shadows, low-key lighting";
+      }
+      
+      const enhancedPrompt = customStyleInput 
+        ? `${prompt} (Style: ${customStyleInput}${styleEnhancement})`
+        : `${prompt} (Style: ${selectedImageStyle}${styleEnhancement})`;
+        
+      // Call the parent's regenerate function with a single prompt
+      await onRegenerateImages?.(selectedProvider, [enhancedPrompt]);
+    } catch (err) {
+      console.error("Error regenerating single image:", err);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  // Function to regenerate all selected images
+  const regenerateSelectedImages = async () => {
+    if (selectedImages.length === 0) return;
+    
+    setRegenerating(true);
+    
+    try {
+      // Extract prompts from selected images
+      const prompts = selectedImages.map(item => {
+        // Add style enhancements to the prompt
+        let styleEnhancement = "";
+        if (imageTonePreference === "light") {
+          styleEnhancement = ", bright lighting, well-lit scene, vibrant, daytime";
+        } else if (imageTonePreference === "dark") {
+          styleEnhancement = ", dramatic lighting, dark atmosphere, shadows, low-key lighting";
+        }
+        
+        return customStyleInput 
+          ? `${item.prompt} (Style: ${customStyleInput}${styleEnhancement})`
+          : `${item.prompt} (Style: ${selectedImageStyle}${styleEnhancement})`;
+      });
+      
+      // Call the parent's regenerate function
+      await onRegenerateImages?.(selectedProvider, prompts);
+      
+      // Clear selection after regeneration
+      setSelectedImages([]);
+    } catch (err) {
+      console.error("Error regenerating images:", err);
     } finally {
       setRegenerating(false);
     }
@@ -1114,6 +1140,21 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
             <div key={setIndex} className="p-4 border rounded-lg bg-card shadow-sm">
               <h3 className="text-lg font-semibold mb-1">Prompt:</h3>
               <p className="text-sm text-muted-foreground mb-3 italic truncate">"{set.originalPrompt}"</p>
+              
+              {/* Always show regenerate button for this prompt */}
+              <div className="mb-4">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => regenerateSingleImage(set.originalPrompt)}
+                  disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                  className="flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {regenerating ? "Regenerating..." : "Regenerate This Prompt"}
+                </Button>
+              </div>
+              
               {(set.imageUrls.length === 0 && set.imageData.length === 0) && !isLoadingImages && (
                   <p className="text-sm text-red-500">No images were generated for this prompt. Check errors or server logs.</p>
               )}
@@ -1125,49 +1166,63 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   );
                   
                   return (
-                    <div key={`url-${imageIndex}`} className={`relative group border rounded-lg overflow-hidden shadow-lg aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
-                      <img 
-                        src={url} 
-                        alt={`Generated for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                        <div className="flex flex-col gap-3 items-center">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => downloadImage(url, `generated_image_${setIndex}_${imageIndex}.png`)}>
-                              <Download size={16} className="mr-2" />
-                              Download
+                    <div key={`url-${imageIndex}`} className="space-y-3">
+                      <div className={`relative group border rounded-lg overflow-hidden shadow-lg aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                        <img 
+                          src={url} 
+                          alt={`Generated for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                          <div className="flex flex-col gap-3 items-center">
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => downloadImage(url, `generated_image_${setIndex}_${imageIndex}.png`)}>
+                                <Download size={16} className="mr-2" />
+                                Download
+                              </Button>
+                              
+                              <Button 
+                                size="sm" 
+                                variant={isSelected ? "default" : "outline"}
+                                onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
+                                disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
+                              >
+                                {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
+                                {isSelected ? "Selected" : "Select"}
+                              </Button>
+                            </div>
+                            
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditingImage(setIndex, imageIndex, set.originalPrompt)}
+                              disabled={regenerating || isLoadingImages}
+                              className="w-full"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              Edit
                             </Button>
                             
-                            <Button 
-                              size="sm" 
-                              variant={isSelected ? "default" : "outline"}
-                              onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
-                              disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
-                            >
-                              {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
-                              {isSelected ? "Selected" : "Select"}
-                            </Button>
+                            {isSelected && (
+                              <Badge variant="outline" className="bg-primary/20">
+                                Selected for regeneration
+                              </Badge>
+                            )}
                           </div>
-                          
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEditingImage(setIndex, imageIndex, set.originalPrompt)}
-                            disabled={regenerating || isLoadingImages}
-                            className="w-full"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            Edit Prompt
-                          </Button>
-                          
-                          {isSelected && (
-                            <Badge variant="outline" className="bg-primary/20">
-                              Selected for regeneration
-                            </Badge>
-                          )}
                         </div>
                       </div>
+                      
+                      {/* Individual image regenerate button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => regenerateSingleImage(set.originalPrompt)}
+                        disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {regenerating ? "Regenerating..." : "Regenerate"}
+                      </Button>
                     </div>
                   );
                 })}
@@ -1179,49 +1234,63 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   );
                   
                   return (
-                    <div key={`b64-${imageIndex}`} className={`relative group border rounded-lg overflow-hidden shadow-lg aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
-                      <img 
-                        src={`data:image/png;base64,${b64}`}
-                        alt={`Generated (base64) for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                        <div className="flex flex-col gap-3 items-center">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => downloadImage(`data:image/png;base64,${b64}`, `generated_image_b64_${setIndex}_${imageIndex}.png`)}>
-                              <Download size={16} className="mr-2" />
-                              Download
+                    <div key={`b64-${imageIndex}`} className="space-y-3">
+                      <div className={`relative group border rounded-lg overflow-hidden shadow-lg aspect-video ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                        <img 
+                          src={`data:image/png;base64,${b64}`}
+                          alt={`Generated (base64) for: ${set.originalPrompt.substring(0,30)}... - Image ${imageIndex + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                          <div className="flex flex-col gap-3 items-center">
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="secondary" onClick={() => downloadImage(`data:image/png;base64,${b64}`, `generated_image_b64_${setIndex}_${imageIndex}.png`)}>
+                                <Download size={16} className="mr-2" />
+                                Download
+                              </Button>
+                              
+                              <Button 
+                                size="sm" 
+                                variant={isSelected ? "default" : "outline"}
+                                onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
+                                disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
+                              >
+                                {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
+                                {isSelected ? "Selected" : "Select"}
+                              </Button>
+                            </div>
+                            
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditingImage(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
+                              disabled={regenerating || isLoadingImages}
+                              className="w-full"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                              Edit
                             </Button>
                             
-                            <Button 
-                              size="sm" 
-                              variant={isSelected ? "default" : "outline"}
-                              onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
-                              disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
-                            >
-                              {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
-                              {isSelected ? "Selected" : "Select"}
-                            </Button>
+                            {isSelected && (
+                              <Badge variant="outline" className="bg-primary/20">
+                                Selected for regeneration
+                              </Badge>
+                            )}
                           </div>
-                          
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEditingImage(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
-                            disabled={regenerating || isLoadingImages}
-                            className="w-full"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            Edit Prompt
-                          </Button>
-                          
-                          {isSelected && (
-                            <Badge variant="outline" className="bg-primary/20">
-                              Selected for regeneration
-                            </Badge>
-                          )}
                         </div>
                       </div>
+                      
+                      {/* Individual image regenerate button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => regenerateSingleImage(set.originalPrompt)}
+                        disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                        className="w-full flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        {regenerating ? "Regenerating..." : "Regenerate"}
+                      </Button>
                     </div>
                   );
                 })}

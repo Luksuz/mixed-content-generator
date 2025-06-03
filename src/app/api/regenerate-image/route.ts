@@ -101,17 +101,23 @@ export async function POST(request: NextRequest) {
                     });
                     
                     if (!minimaxResponse.ok) {
+                        const errorData = await minimaxResponse.json().catch(() => ({}));
+                        console.error('Minimax API error:', minimaxResponse.status, errorData);
                         throw new Error(`Minimax API request failed with status ${minimaxResponse.status}`);
                     }
                     
                     const data = await minimaxResponse.json();
+                    
                     if (data.data?.image_base64?.[0]) {
                         const base64String = data.data.image_base64[0];
                         const imageBuffer = Buffer.from(base64String, 'base64');
                         const destinationPath = `user_${userId}/images/${uuidv4()}.png`;
                         imageUrl = await uploadFileToSupabase(imageBuffer, destinationPath, 'image/png');
+                    } else if (data.base && data.base.status_code !== 0) {
+                        throw new Error(`Minimax API error: ${data.base.status_msg || 'Unknown error'}`);
                     } else {
-                        throw new Error('MiniMax response did not contain expected image data');
+                        console.error('Unexpected Minimax response format:', JSON.stringify(data, null, 2));
+                        throw new Error('Unexpected Minimax response format - no image data found');
                     }
                 }
 
