@@ -12,7 +12,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ExtractedScene } from "../page";
+
+// Interface for extracted scenes
+interface ExtractedScene {
+  chunkIndex: number;
+  originalText: string;
+  imagePrompt: string;
+  summary: string;
+  error?: string;
+}
 
 export interface ScriptSection {
   title: string;
@@ -93,6 +101,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
   
   // Image Regeneration state
   const [regenerating, setRegenerating] = useState(false);
+  const [regeneratingPrompt, setRegeneratingPrompt] = useState<string | null>(null); // Track which prompt is being regenerated
+  const [regeneratingType, setRegeneratingType] = useState<'single' | 'selected' | 'all' | null>(null); // Track regeneration type
   const [editingImageIndex, setEditingImageIndex] = useState<{ setIndex: number; imageIndex: number } | null>(null);
   const [editedPrompt, setEditedPrompt] = useState<string>("");
   
@@ -247,6 +257,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     if (allPrompts.length === 0) return;
     
     setRegenerating(true);
+    setRegeneratingType('all');
+    setRegeneratingPrompt(null);
     
     try {
       // Add style enhancements to each prompt
@@ -269,12 +281,16 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       console.error("Error regenerating all images:", err);
     } finally {
       setRegenerating(false);
+      setRegeneratingType(null);
+      setRegeneratingPrompt(null);
     }
   };
 
   // Function to regenerate a single image
   const regenerateSingleImage = async (prompt: string) => {
     setRegenerating(true);
+    setRegeneratingType('single');
+    setRegeneratingPrompt(prompt);
     
     try {
       // Add style enhancements to the prompt
@@ -295,6 +311,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       console.error("Error regenerating single image:", err);
     } finally {
       setRegenerating(false);
+      setRegeneratingType(null);
+      setRegeneratingPrompt(null);
     }
   };
 
@@ -303,6 +321,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     if (selectedImages.length === 0) return;
     
     setRegenerating(true);
+    setRegeneratingType('selected');
+    setRegeneratingPrompt(null);
     
     try {
       // Extract prompts from selected images
@@ -329,6 +349,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       console.error("Error regenerating images:", err);
     } finally {
       setRegenerating(false);
+      setRegeneratingType(null);
+      setRegeneratingPrompt(null);
     }
   };
 
@@ -406,6 +428,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
     if (!editingImageIndex || !editedPrompt.trim()) return;
     
     setRegenerating(true);
+    setRegeneratingType('single');
+    setRegeneratingPrompt(editedPrompt.trim());
     
     try {
       // Add style enhancements to the prompt
@@ -430,6 +454,8 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
       console.error("Error regenerating image with edited prompt:", err);
     } finally {
       setRegenerating(false);
+      setRegeneratingType(null);
+      setRegeneratingPrompt(null);
     }
   };
 
@@ -951,10 +977,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 variant="default" 
                 size="sm"
                 onClick={regenerateSelectedImages}
-                disabled={isLoadingImages || regenerating || selectedImages.length === 0}
+                disabled={isLoadingImages || (regenerating && regeneratingType === 'selected') || selectedImages.length === 0 || (regenerating && regeneratingType !== 'selected')}
                 className="flex items-center gap-2"
               >
-                {regenerating ? (
+                {(regenerating && regeneratingType === 'selected') ? (
                   <>
                     <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     <span>Regenerating...</span>
@@ -983,10 +1009,10 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               variant="outline" 
               size="sm"
               onClick={regenerateAllImages}
-              disabled={isLoadingImages || regenerating || imageSets.length === 0}
+              disabled={isLoadingImages || (regenerating && regeneratingType === 'all') || imageSets.length === 0 || (regenerating && regeneratingType !== 'all')}
               className="flex items-center gap-2"
             >
-              {regenerating ? (
+              {(regenerating && regeneratingType === 'all') ? (
                 <>
                   <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   <span>Regenerating all images...</span>
@@ -1139,7 +1165,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
           {imageSets.map((set, setIndex) => (
             <div key={setIndex} className="p-4 border rounded-lg bg-card shadow-sm">
               <h3 className="text-lg font-semibold mb-1">Prompt:</h3>
-              <p className="text-sm text-muted-foreground mb-3 italic truncate">"{set.originalPrompt}"</p>
+              <p className="text-sm text-muted-foreground mb-3 italic truncate">&quot;{set.originalPrompt}&quot;</p>
               
               {/* Always show regenerate button for this prompt */}
               <div className="mb-4">
@@ -1147,11 +1173,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                   size="sm"
                   variant="outline"
                   onClick={() => regenerateSingleImage(set.originalPrompt)}
-                  disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                  disabled={(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) || isLoadingImages || !onRegenerateImages || (regenerating && regeneratingType !== 'single')}
                   className="flex items-center justify-center gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  {regenerating ? "Regenerating..." : "Regenerate This Prompt"}
+                  {(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) ? "Regenerating..." : "Regenerate"}
                 </Button>
               </div>
               
@@ -1217,11 +1243,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                         size="sm"
                         variant="outline"
                         onClick={() => regenerateSingleImage(set.originalPrompt)}
-                        disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                        disabled={(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) || isLoadingImages || !onRegenerateImages || (regenerating && regeneratingType !== 'single')}
                         className="w-full flex items-center justify-center gap-2"
                       >
                         <RefreshCw className="h-4 w-4" />
-                        {regenerating ? "Regenerating..." : "Regenerate"}
+                        {(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) ? "Regenerating..." : "Regenerate"}
                       </Button>
                     </div>
                   );
@@ -1285,11 +1311,11 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                         size="sm"
                         variant="outline"
                         onClick={() => regenerateSingleImage(set.originalPrompt)}
-                        disabled={regenerating || isLoadingImages || !onRegenerateImages}
+                        disabled={(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) || isLoadingImages || !onRegenerateImages || (regenerating && regeneratingType !== 'single')}
                         className="w-full flex items-center justify-center gap-2"
                       >
                         <RefreshCw className="h-4 w-4" />
-                        {regenerating ? "Regenerating..." : "Regenerate"}
+                        {(regenerating && regeneratingType === 'single' && regeneratingPrompt === set.originalPrompt) ? "Regenerating..." : "Regenerate"}
                       </Button>
                     </div>
                   );
@@ -1314,7 +1340,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
               <Label htmlFor="thumbnail-prompt">Thumbnail Description</Label>
               <Textarea
                 id="thumbnail-prompt"
-                placeholder="Describe your thumbnail in detail, e.g., 'A futuristic cityscape with flying cars and neon lights, cinematic composition, high quality'"
+                placeholder="Describe your thumbnail in detail, e.g., &apos;A futuristic cityscape with flying cars and neon lights, cinematic composition, high quality&apos;"
                 value={thumbnailPrompt}
                 onChange={(e) => setThumbnailPrompt(e.target.value)}
                 disabled={isGeneratingThumbnail}

@@ -710,10 +710,10 @@ const fishAudioVoices: VoiceOption[] = [
   ];
 
   useEffect(() => {
-    if (provider !== 'elevenlabs') { // This uses the old `provider` state (renamed to providerLegacy)
+    if (selectedProvider !== 'elevenlabs') {
       setElevenLabsVoicesList([]);
     }
-  }, [provider]); // Should be `selectedProvider` or this logic needs update for `selectedProvider`
+  }, [selectedProvider]);
 
   const voiceOptions: Record<TtsProvider, VoiceOption[]> = {
     openai: [
@@ -833,12 +833,20 @@ const fishAudioVoices: VoiceOption[] = [
 
   const handleDownloadAudio = () => {
     if (generatedAudioUrl) {
-      const link = document.createElement('a');
-      link.href = generatedAudioUrl;
-      link.download = `generated_audio_${selectedProvider}.mp3`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const link = document.createElement('a');
+        link.href = generatedAudioUrl;
+        link.download = `generated_audio_${selectedProvider}.mp3`;
+        link.target = '_blank'; // Open in new tab to prevent navigation
+        link.rel = 'noopener noreferrer'; // Security best practice
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (error) {
+        console.error('Error downloading audio:', error);
+        // Fallback: open in new tab if direct download fails
+        window.open(generatedAudioUrl, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 

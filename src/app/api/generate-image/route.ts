@@ -199,6 +199,7 @@ export async function POST(request: NextRequest) {
                         }
                         const data = await minimaxResponse.json();
 
+                        // Check if we have a successful response with image data
                         if (data.data?.image_base64?.[0]) {
                             const base64String = data.data.image_base64[0];
                             const imageBuffer = Buffer.from(base64String, 'base64');
@@ -210,12 +211,16 @@ export async function POST(request: NextRequest) {
                             }
                             return supabaseUrl;
                         }
-                        if (data.base?.status_code !== 0) {
+                        
+                        // Check for API error response
+                        if (data.base && data.base.status_code !== 0) {
                             console.error('Minimax API returned an error status:', data.base);
                             throw new Error(`Minimax API error: ${data.base.status_msg || 'Unknown error'}`);
                         }
+                        
+                        // If we get here, the response format was unexpected
                         console.warn('Minimax response format unexpected:', data);
-                        return null; // Indicate failure
+                        throw new Error('Minimax API returned unexpected response format');
                     } catch (error) {
                         console.error('Error during single MiniMax image generation/upload attempt:', error);
                         // Let Promise.allSettled handle this rejection after retries

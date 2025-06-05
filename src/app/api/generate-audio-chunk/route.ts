@@ -5,7 +5,7 @@ import { OpenAI } from 'openai';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { ElevenLabsClient } from "elevenlabs";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
 import { v4 as uuidv4 } from 'uuid';
 import { synthesizeGoogleTts } from "@/utils/google-tts-utils";
@@ -121,12 +121,12 @@ async function generateSingleAudioChunk(
         
         const elConversionParams: any = {
           text: textChunk,
-          model_id: elModelId,
-          output_format: "mp3_44100_128"
+          modelId: elModelId,
+          outputFormat: "mp3_44100_128"
         };
         
         if (elModelId === "eleven_flash_v2_5" && languageCode) {
-          elConversionParams.language_code = languageCode;
+          elConversionParams.languageCode = languageCode;
         }
         
         const elAudioStream = await elevenlabs.textToSpeech.convert(elevenLabsVoiceId, elConversionParams);

@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     // Initialize the model
     const model = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
-      modelName: "gpt-4o-mini",
+      modelName: "gpt-4.1-mini",
       temperature: 0.85, // Slightly higher temperature for more creative regeneration
     });
 
