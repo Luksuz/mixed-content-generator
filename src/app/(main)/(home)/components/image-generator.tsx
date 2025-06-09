@@ -236,12 +236,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
         // Image is already selected, so remove it
         return prev.filter((_, i) => i !== existingIndex);
       } else {
-        // Image is not selected, check if we're at the limit
-        if (prev.length >= 5) {
-          alert("Maximum 5 images can be selected for regeneration at once");
-          return prev;
-        }
-        // Add to selection
+        // Add to selection (no limit check - backend handles batching)
         return [...prev, { setIndex, imageIndex, prompt }];
       }
     });
@@ -961,7 +956,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                 {selectedImages.length} image{selectedImages.length !== 1 ? 's' : ''} selected
               </Badge>
               <p className="text-sm text-muted-foreground mt-1">
-                Select up to 5 images to regenerate with the same prompts
+                Select images to regenerate with the same prompts (processed in batches)
               </p>
             </div>
             <div className="flex gap-2">
@@ -1211,7 +1206,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                                 size="sm" 
                                 variant={isSelected ? "default" : "outline"}
                                 onClick={() => toggleImageSelection(setIndex, imageIndex, set.originalPrompt)}
-                                disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
+                                disabled={!onRegenerateImages || regenerating || isLoadingImages}
                               >
                                 {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
                                 {isSelected ? "Selected" : "Select"}
@@ -1279,7 +1274,7 @@ const ImageGenerator: React.FC<ImageGeneratorProps> = ({
                                 size="sm" 
                                 variant={isSelected ? "default" : "outline"}
                                 onClick={() => toggleImageSelection(setIndex, imageIndex + set.imageUrls.length, set.originalPrompt)}
-                                disabled={!onRegenerateImages || (selectedImages.length >= 5 && !isSelected) || regenerating || isLoadingImages}
+                                disabled={!onRegenerateImages || regenerating || isLoadingImages}
                               >
                                 {isSelected ? <Check size={16} className="mr-2" /> : <RefreshCw size={16} className="mr-2" />}
                                 {isSelected ? "Selected" : "Select"}

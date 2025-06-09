@@ -351,14 +351,17 @@ const GeneratorsPage = () => {
       return;
     }
     
-    if (prompts.length > 5) {
-      setImageGenerationError("Maximum 5 images can be regenerated at once");
-      return;
-    }
-    
     setIsGeneratingImages(true);
     setImageGenerationError(null);
-    setCurrentImageGeneratingInfo(`Regenerating ${prompts.length} selected image${prompts.length > 1 ? 's' : ''}...`);
+    
+    // Calculate estimated time and batches for user feedback
+    const BATCH_SIZE = 5;
+    const totalBatches = Math.ceil(prompts.length / BATCH_SIZE);
+    const estimatedMinutes = totalBatches > 1 ? Math.ceil(totalBatches * 5 / 60) : 1; // Rough estimate: 5 seconds per batch
+    
+    setCurrentImageGeneratingInfo(
+      `Regenerating ${prompts.length} image${prompts.length > 1 ? 's' : ''} in ${totalBatches} batch${totalBatches > 1 ? 'es' : ''}${totalBatches > 1 ? ` (~${estimatedMinutes} minute${estimatedMinutes > 1 ? 's' : ''})` : ''}...`
+    );
     
     try {
       const response = await fetch('/api/regenerate-image', {
@@ -392,12 +395,25 @@ const GeneratorsPage = () => {
         
         console.log(`✅ Successfully regenerated ${data.totalSuccessful} images`);
         
+        // Update progress message with results
+        setCurrentImageGeneratingInfo(
+          `✅ Regeneration complete - ${data.totalSuccessful} image${data.totalSuccessful !== 1 ? 's' : ''} regenerated successfully${data.totalFailed > 0 ? `, ${data.totalFailed} failed` : ''}`
+        );
+        
         if (data.totalFailed > 0) {
           console.warn(`⚠️ Failed to regenerate ${data.totalFailed} images`);
           if (data.errors) {
             console.error('Regeneration errors:', data.errors);
+            // Show partial error information to user
+            setImageGenerationError(`Regenerated ${data.totalSuccessful} images successfully, but ${data.totalFailed} failed. Check console for details.`);
           }
         }
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setCurrentImageGeneratingInfo(null);
+        }, 3000);
+        
       } else {
         setImageGenerationError('Received invalid response from image regeneration service');
       }

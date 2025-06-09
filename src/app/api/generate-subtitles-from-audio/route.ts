@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { uploadFileToSupabase } from "@/utils/supabase-utils";
+import { reformatSrtContent } from '@/utils/srt-utils';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from "openai";
 import path from 'path';
@@ -48,8 +49,20 @@ async function generateSubtitlesFromAudio(audioUrl: string): Promise<string> {
       console.warn("⚠️ Could not clean up temporary audio file:", cleanupError);
     }
     
-    console.log("✅ Transcription complete!");
-    return transcription;
+    // The result from openai.audio.transcriptions.create when response_format is 'srt' 
+    // is directly the SRT string, according to OpenAI docs for `srt` format.
+    const rawSrt = transcription as unknown as string;
+    
+    if (typeof rawSrt !== 'string' || rawSrt.trim() === '') {
+      console.error("OpenAI Whisper did not return a valid non-empty SRT string.");
+      throw new Error('Failed to generate valid SRT data from OpenAI.');
+    }
+    
+    console.log("Raw SRT generated. Reformatting...");
+    const reformattedSrt = reformatSrtContent(rawSrt);
+    console.log("✅ Transcription complete and reformatted!");
+    
+    return reformattedSrt;
     
   } catch (error: any) {
     console.error("❌ Error in OpenAI transcription:", error);
